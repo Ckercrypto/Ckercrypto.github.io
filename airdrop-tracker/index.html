@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ایردراپ‌ترکر | Airdrop Daily Tracker</title>
+<meta name="description" content="A personal, offline checklist for the airdrops you already farm: log which wallet, X, Discord and browser profile each project uses, and tick off your own daily tasks. It does not find or recommend airdrops. Data stays in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--card:#161b22;--card2:#1f2630;--line:#2a323d;--txt:#e6edf3;--mut:#8b96a5;--acc:#f5b83d;--ok:#3fb950;--bad:#f85149;--blue:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,Tahoma,sans-serif;font-size:15px}
+button,input,select,textarea{font-family:inherit;font-size:14px}
+header{position:sticky;top:0;z-index:5;background:#0d1117ee;backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:12px 16px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:19px;margin:0;font-weight:800}
+h1 span{color:var(--acc)}
+.today{color:var(--mut);font-size:13px}
+.spacer{flex:1}
+.btn{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--acc)}
+.btn.pri{background:var(--acc);color:#111;border-color:var(--acc);font-weight:700}
+.btn.sm{padding:4px 9px;font-size:13px}
+.btn.del{color:var(--bad)}
+.prog{height:8px;background:var(--card2);border-radius:6px;overflow:hidden}
+.prog>i{display:block;height:100%;background:linear-gradient(90deg,var(--ok),var(--acc));transition:width .3s}
+.overall{margin-top:10px;display:flex;align-items:center;gap:10px}
+.overall .prog{flex:1}
+.tabs{display:flex;gap:6px;margin-top:10px}
+.tab{padding:6px 14px;border-radius:20px;cursor:pointer;color:var(--mut);border:1px solid transparent}
+.tab.on{color:var(--txt);background:var(--card2);border-color:var(--line)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.filters input,.filters select{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+.filters input{flex:1;min-width:160px}
+main{padding:16px;max-width:1300px;margin:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card.done{border-color:#2f6b3a}
+.card.paused{opacity:.55}
+.ch{display:flex;align-items:center;gap:8px}
+.ch h3{margin:0;font-size:16px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch a{color:var(--blue);text-decoration:none;font-size:13px}
+.badge{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card2);color:var(--mut);border:1px solid var(--line)}
+.badge.hi{color:#111;background:var(--acc);border-color:var(--acc)}
+.badge.st{color:var(--ok)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:3px 8px;color:var(--txt);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip b{color:var(--mut);font-weight:400;margin-left:4px}
+.tasks{display:flex;flex-direction:column;gap:4px}
+.task{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:var(--card2)}
+.task input[type=checkbox]{width:20px;height:20px;accent-color:var(--ok);cursor:pointer;flex:none}
+.task .tt{flex:1;cursor:pointer;word-break:break-word}
+.task.ok .tt{text-decoration:line-through;color:var(--mut)}
+.task .fq{font-size:11px;color:var(--mut)}
+.task a{color:var(--blue);font-size:13px;text-decoration:none}
+.task .x{background:none;border:none;color:var(--mut);cursor:pointer;font-size:15px;padding:0 2px}
+.task .x:hover{color:var(--bad)}
+.addt{display:flex;gap:6px}
+.addt input{flex:1;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:6px 9px;min-width:0}
+.addt select{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:9px}
+.foot{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
+.foot .prog{flex:1;height:6px}
+.heat{display:flex;gap:2px}
+.heat i{width:7px;height:7px;border-radius:2px;background:var(--card2)}
+.heat i.h1{background:#2f6b3a}.heat i.h2{background:var(--ok)}
+.note{font-size:13px;color:var(--mut);white-space:pre-wrap;background:var(--bg);padding:6px 8px;border-radius:8px}
+.empty{text-align:center;color:var(--mut);padding:50px 10px}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:18px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-size:14px;vertical-align:top}
+th{background:var(--card2);color:var(--mut);font-weight:600}
+td.warn{color:var(--acc)}
+h2{font-size:16px;margin:18px 0 8px}
+dialog{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:16px;padding:18px;width:min(560px,94vw)}
+dialog::backdrop{background:#000a}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut)}
+.form .full{grid-column:1/-1}
+.form input,.form select,.form textarea{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:8px}
+.form textarea{min-height:70px;resize:vertical}
+.warnbox{font-size:12px;color:var(--acc);background:#f5b83d14;border:1px solid #f5b83d44;border-radius:9px;padding:7px 9px}
+.dacts{display:flex;gap:8px;justify-content:flex-start;margin-top:14px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--line);padding:9px 16px;border-radius:12px;opacity:0;transition:.3s;pointer-events:none;z-index:20}
+.toast.on{opacity:1}
+.ltr{direction:ltr;unicode-bidi:plaintext}
+@media(max-width:600px){.form{grid-template-columns:1fr}.grid{grid-template-columns:1fr}main{padding:10px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>ایردراپ<span>‌ترکر</span></h1>
+    <span class="today" id="todayLbl"></span>
+    <span class="spacer"></span>
+    <button class="btn pri" onclick="openProject()">+ پروژهٔ جدید</button>
+    <button class="btn" onclick="exportData()">بکاپ</button>
+    <button class="btn" onclick="document.getElementById('imp').click()">بازیابی</button>
+    <input type="file" id="imp" accept=".json" hidden onchange="importData(this)">
+  </div>
+  <div class="overall"><span id="ovTxt" style="font-size:13px;white-space:nowrap"></span><div class="prog"><i id="ovBar"></i></div></div>
+  <div class="tabs">
+    <div class="tab on" data-v="today" onclick="setView('today')">تسک‌های امروز</div>
+    <div class="tab" data-v="accounts" onclick="setView('accounts')">نقشهٔ حساب‌ها</div>
+  </div>
+  <div class="filters" id="filters">
+    <input id="q" placeholder="جست‌وجو در پروژه، کیف پول، اکانت…" oninput="render()">
+    <select id="fBrowser" onchange="render()"></select>
+    <select id="fWallet" onchange="render()"></select>
+    <select id="fStatus" onchange="render()">
+      <option value="">همهٔ وضعیت‌ها</option><option value="active">فعال</option><option value="paused">متوقف</option><option value="ended">تمام‌شده</option>
+    </select>
+    <select id="fShow" onchange="render()">
+      <option value="">همه</option><option value="todo">فقط ناتمام‌های امروز</option><option value="done">کامل‌شده‌ها</option>
+    </select>
+  </div>
+</header>
+<main id="main"></main>
+
+<dialog id="dlg">
+  <h3 id="dlgT" style="margin-top:0">پروژهٔ جدید</h3>
+  <div class="form">
+    <label class="full">نام پروژه *<input id="p_name"></label>
+    <label class="full">لینک پروژه / داشبورد<input id="p_url" class="ltr" placeholder="https://"></label>
+    <label>کیف پول (اسم یا آدرس عمومی)<input id="p_wallet" list="dl_wallet" class="ltr"></label>
+    <label>شبکه / چین<input id="p_chain" list="dl_chain" placeholder="EVM, Solana, …"></label>
+    <label>اکانت X<input id="p_x" list="dl_x" class="ltr" placeholder="@handle"></label>
+    <label>اکانت دیسکورد<input id="p_discord" list="dl_discord" class="ltr"></label>
+    <label>مرورگر / پروفایل<input id="p_browser" list="dl_browser" placeholder="Chrome – Profile 3"></label>
+    <label>ایمیل / تلگرام<input id="p_email" list="dl_email" class="ltr"></label>
+    <label>وضعیت<select id="p_status"><option value="active">فعال</option><option value="paused">متوقف</option><option value="ended">تمام‌شده</option></select></label>
+    <label>اولویت<select id="p_prio"><option value="1">معمولی</option><option value="2">بالا ⭐</option></select></label>
+    <label>تاریخ اسنپ‌شات / TGE<input id="p_tge" type="date"></label>
+    <label>هزینهٔ انجام‌شده (دلار، گس و…)<input id="p_cost" type="number" step="any" min="0"></label>
+    <label class="full">یادداشت<textarea id="p_notes" placeholder="رفرال، امتیاز فعلی، نکات…"></textarea></label>
+    <div class="warnbox full">⚠️ هیچ‌وقت سید فریز، پرایوت‌کی یا پسورد اینجا ننویس. فقط اسم کیف پول یا آدرس عمومی.</div>
+  </div>
+  <div class="dacts">
+    <button class="btn pri" onclick="saveProject()">ذخیره</button>
+    <button class="btn" onclick="dlg.close()">انصراف</button>
+    <span class="spacer"></span>
+    <button class="btn del" id="p_del" onclick="deleteProject()">حذف پروژه</button>
+  </div>
+</dialog>
+<datalist id="dl_wallet"></datalist><datalist id="dl_chain"></datalist><datalist id="dl_x"></datalist><datalist id="dl_discord"></datalist><datalist id="dl_browser"></datalist><datalist id="dl_email"></datalist>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY='airdropTracker.v1';
+const FQ={daily:'روزانه',weekly:'هفتگی',once:'یک‌بار'};
+let S=load(), view='today', editId=null;
+const dlg=document.getElementById('dlg');
+
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.projects)return s}catch(e){}return{projects:[],done:{},hist:{},lastBackup:null}}
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function uid(){return Math.random().toString(36).slice(2,10)}
+function pad(n){return String(n).padStart(2,'0')}
+function dkey(d=new Date()){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function wkey(d=new Date()){const x=new Date(d);const day=(x.getDay()+1)%7;x.setDate(x.getDate()-day);return 'w'+dkey(x)} // week starts Saturday
+function period(t){return t.freq==='weekly'?wkey():t.freq==='once'?'once':dkey()}
+function isDone(t){return S.done[t.id]===period(t)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function fa(n){return String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d])}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1800)}
+function short(s){s=String(s||'');return /^0x[0-9a-f]{20,}$/i.test(s)||s.length>24?s.slice(0,6)+'…'+s.slice(-4):s}
+
+function visibleTasks(p){return p.tasks.filter(t=>!(t.freq==='once'&&S.done[t.id]==='once'&&false))}
+function projStats(p){const ts=p.tasks;const d=ts.filter(isDone).length;return{d,n:ts.length}}
+function recordHist(p){const today=dkey();S.hist[today]=S.hist[today]||{};const{d,n}=projStats(p);S.hist[today][p.id]=[d,n]}
+function streak(p){let s=0;const d=new Date();const today=dkey(d);const h=S.hist[today]?.[p.id];if(!(h&&h[1]&&h[0]>=h[1]))d.setDate(d.getDate()-1);
+  for(let i=0;i<400;i++){const r=S.hist[dkey(d)]?.[p.id];if(r&&r[1]&&r[0]>=r[1]){s++;d.setDate(d.getDate()-1)}else break}return s}
+function heat(p){let h='';const d=new Date();d.setDate(d.getDate()-13);for(let i=0;i<14;i++){const r=S.hist[dkey(d)]?.[p.id];let c='';if(r&&r[1]){c=r[0]>=r[1]?'h2':r[0]>0?'h1':''}h+=`<i class="${c}" title="${dkey(d)}"></i>`;d.setDate(d.getDate()+1)}return h}
+
+function setView(v){view=v;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));render()}
+
+function uniq(f){return [...new Set(S.projects.map(p=>p[f]).filter(Boolean))].sort()}
+function fillSelect(id,f,label){const el=document.getElementById(id),v=el.value;el.innerHTML=`<option value="">${label}</option>`+uniq(f).map(x=>`<option ${x===v?'selected':''} value="${esc(x)}">${esc(short(x))}</option>`).join('')}
+function fillLists(){['wallet','chain','x','discord','browser','email'].forEach(f=>document.getElementById('dl_'+f).innerHTML=uniq(f).map(x=>`<option value="${esc(x)}">`).join(''))}
+
+function filtered(){const q=document.getElementById('q').value.trim().toLowerCase(),fb=fBrowser.value,fw=fWallet.value,fs=fStatus.value,sh=fShow.value;
+  return S.projects.filter(p=>{
+    if(fb&&p.browser!==fb)return false;if(fw&&p.wallet!==fw)return false;if(fs&&p.status!==fs)return false;
+    const{d,n}=projStats(p);if(sh==='todo'&&(n===0||d>=n))return false;if(sh==='done'&&!(n&&d>=n))return false;
+    if(q){const hay=[p.name,p.wallet,p.x,p.discord,p.browser,p.email,p.chain,p.notes,...p.tasks.map(t=>t.title)].join(' ').toLowerCase();if(!hay.includes(q))return false}
+    return true}).sort((a,b)=>(a.status==='active'?0:1)-(b.status==='active'?0:1)||(b.prio||1)-(a.prio||1)||(projStats(a).d>=projStats(a).n)-(projStats(b).d>=projStats(b).n)||a.name.localeCompare(b.name,'fa'))}
+
+function render(){
+  fillSelect('fBrowser','browser','همهٔ مرورگرها');fillSelect('fWallet','wallet','همهٔ کیف پول‌ها');fillLists();
+  const now=new Date();document.getElementById('todayLbl').textContent=now.toLocaleDateString('fa-IR',{weekday:'long',day:'numeric',month:'long'});
+  let D=0,N=0,PD=0;const act=S.projects.filter(p=>p.status==='active');act.forEach(p=>{const s=projStats(p);D+=s.d;N+=s.n;if(s.n&&s.d>=s.n)PD++});
+  document.getElementById('ovTxt').innerHTML=`امروز: <b>${fa(D)}</b> از ${fa(N)} تسک &nbsp;|&nbsp; <b>${fa(PD)}</b> از ${fa(act.length)} پروژه کامل`;
+  document.getElementById('ovBar').style.width=(N?D/N*100:0)+'%';
+  document.getElementById('filters').style.display=view==='today'?'flex':'none';
+  view==='today'?renderToday():renderAccounts();
+}
+
+function renderToday(){
+  const m=document.getElementById('main');const list=filtered();
+  if(!S.projects.length){m.innerHTML=`<div class="empty">این یه دفترچهٔ شخصیه برای ایردراپ‌هایی که خودت انجام می‌دی، نه ایردراپ‌یاب.<br>پروژه‌هات رو با کیف پول، اکانت‌ها و مرورگرش ثبت کن و تسک‌های روزانه‌ت رو تیک بزن.<br>همهٔ اطلاعات فقط توی مرورگر خودت ذخیره می‌شه.<br><br><button class="btn pri" onclick="openProject()">+ اولین پروژه رو اضافه کن</button></div>`;return}
+  if(!list.length){m.innerHTML=`<div class="empty">چیزی با این فیلتر پیدا نشد.</div>`;return}
+  m.innerHTML='<div class="grid">'+list.map(card).join('')+'</div>';
+}
+function chip(lbl,v,f){return v?`<span class="chip ltr" title="${esc(v)} — کلیک برای کپی" onclick="copy('${esc(v).replace(/'/g,"\\'")}')"><b>${lbl}</b>${esc(short(v))}</span>`:''}
+function card(p){
+  const{d,n}=projStats(p),full=n&&d>=n,st=streak(p);
+  const days=p.tge?Math.ceil((new Date(p.tge)-new Date(dkey()))/864e5):null;
+  return `<div class="card ${full?'done':''} ${p.status!=='active'?'paused':''}">
+  <div class="ch">${p.prio==2?'<span class="badge hi">⭐</span>':''}<h3 title="${esc(p.name)}">${esc(p.name)}</h3>
+    ${p.status!=='active'?`<span class="badge">${p.status==='paused'?'متوقف':'تمام‌شده'}</span>`:''}
+    ${days!==null?`<span class="badge ${days<=7&&days>=0?'hi':''}">${days>=0?fa(days)+' روز تا TGE':'TGE گذشته'}</span>`:''}
+    ${st?`<span class="badge st">🔥 ${fa(st)}</span>`:''}
+    ${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">باز کن ↗</a>`:''}
+    <button class="btn sm" onclick="openProject('${p.id}')">✎</button></div>
+  <div class="chips">${chip('👛',p.wallet)}${chip('⛓',p.chain)}${chip('𝕏',p.x)}${chip('💬',p.discord)}${chip('🌐',p.browser)}${chip('✉️',p.email)}</div>
+  <div class="tasks">${p.tasks.map(t=>{const ok=isDone(t);return `<div class="task ${ok?'ok':''}">
+     <input type="checkbox" ${ok?'checked':''} onchange="toggle('${p.id}','${t.id}')">
+     <span class="tt" onclick="toggle('${p.id}','${t.id}')">${esc(t.title)}</span>
+     ${t.freq!=='daily'?`<span class="fq">${FQ[t.freq]}</span>`:''}
+     ${t.url?`<a href="${esc(t.url)}" target="_blank" rel="noopener">↗</a>`:''}
+     <button class="x" title="حذف تسک" onclick="delTask('${p.id}','${t.id}')">×</button></div>`}).join('')||'<div class="fq" style="padding:4px">هنوز تسکی نداره؛ پایین اضافه کن.</div>'}</div>
+  <div class="addt"><input id="nt_${p.id}" placeholder="تسک جدید… (لینک هم می‌تونی آخرش بذاری)" onkeydown="if(event.key==='Enter')addTask('${p.id}')">
+    <select id="nf_${p.id}"><option value="daily">روزانه</option><option value="weekly">هفتگی</option><option value="once">یک‌بار</option></select>
+    <button class="btn sm" onclick="addTask('${p.id}')">+</button></div>
+  ${p.notes?`<div class="note">${esc(p.notes)}</div>`:''}
+  <div class="foot"><span>${fa(d)}/${fa(n)}</span><div class="prog"><i style="width:${n?d/n*100:0}%"></i></div><div class="heat" title="۱۴ روز اخیر">${heat(p)}</div>${p.cost?`<span>$${fa(p.cost)}</span>`:''}</div>
+  </div>`}
+
+function renderAccounts(){
+  const m=document.getElementById('main');
+  const groups=[['wallet','👛 کیف پول'],['x','𝕏 اکانت X'],['discord','💬 دیسکورد'],['browser','🌐 مرورگر / پروفایل'],['email','✉️ ایمیل / تلگرام']];
+  let h='';
+  for(const[f,t]of groups){const vals=uniq(f);if(!vals.length)continue;
+    h+=`<h2>${t}</h2><table><tr><th>${t.split(' ').slice(1).join(' ')}</th><th>تعداد</th><th>پروژه‌ها</th></tr>`+
+    vals.map(v=>{const ps=S.projects.filter(p=>p[f]===v);return `<tr><td class="ltr">${esc(v)}</td><td class="${ps.length>8?'warn':''}">${fa(ps.length)}</td><td>${ps.map(p=>esc(p.name)).join('، ')}</td></tr>`}).join('')+'</table>';}
+  const none=S.projects.filter(p=>!p.wallet);if(none.length)h+=`<h2>بدون کیف پول ثبت‌شده</h2><div class="note">${none.map(p=>esc(p.name)).join('، ')}</div>`;
+  const cost=S.projects.reduce((a,p)=>a+(+p.cost||0),0);if(cost)h+=`<h2>جمع هزینه‌ها</h2><div class="note">$${fa(cost.toFixed(2))}</div>`;
+  m.innerHTML=h||'<div class="empty">وقتی پروژه با کیف پول و اکانت ثبت کنی، اینجا می‌بینی هر کدوم به چه پروژه‌هایی وصله.</div>';
+}
+
+function toggle(pid,tid){const p=S.projects.find(x=>x.id===pid),t=p.tasks.find(x=>x.id===tid);
+  if(isDone(t))delete S.done[tid];else S.done[tid]=period(t);recordHist(p);save();render();
+  const{d,n}=projStats(p);if(n&&d>=n)toast(`✅ ${p.name} برای امروز کامل شد`)}
+function addTask(pid){const inp=document.getElementById('nt_'+pid);let v=inp.value.trim();if(!v)return;
+  let url='';const m=v.match(/(https?:\/\/\S+)\s*$/);if(m){url=m[1];v=v.slice(0,m.index).trim()||url}
+  const p=S.projects.find(x=>x.id===pid);p.tasks.push({id:uid(),title:v,url,freq:document.getElementById('nf_'+pid).value});recordHist(p);save();render();
+  setTimeout(()=>document.getElementById('nt_'+pid)?.focus(),0)}
+function delTask(pid,tid){if(!confirm('این تسک حذف بشه؟'))return;const p=S.projects.find(x=>x.id===pid);p.tasks=p.tasks.filter(t=>t.id!==tid);delete S.done[tid];recordHist(p);save();render()}
+
+const F=['name','url','wallet','chain','x','discord','browser','email','status','prio','tge','cost','notes'];
+function openProject(id){editId=id||null;const p=id?S.projects.find(x=>x.id===id):{status:'active',prio:1};
+  F.forEach(f=>document.getElementById('p_'+f).value=p[f]??'');document.getElementById('dlgT').textContent=id?'ویرایش پروژه':'پروژهٔ جدید';
+  document.getElementById('p_del').style.display=id?'':'none';dlg.showModal();setTimeout(()=>document.getElementById('p_name').focus(),50)}
+function saveProject(){const o={};F.forEach(f=>o[f]=document.getElementById('p_'+f).value.trim());if(!o.name){toast('اسم پروژه رو بنویس');return}
+  if(/\b([a-z]+\s+){11,23}[a-z]+\b/i.test(o.notes)||/\b(0x)?[0-9a-f]{64}\b/i.test(o.notes+o.wallet)){if(!confirm('به نظر شبیه سید فریز یا پرایوت‌کیه! مطمئنی ذخیره بشه؟'))return}
+  o.prio=+o.prio;if(editId){Object.assign(S.projects.find(x=>x.id===editId),o)}else S.projects.push({id:uid(),tasks:[],...o});save();dlg.close();render()}
+function deleteProject(){const p=S.projects.find(x=>x.id===editId);if(!confirm(`«${p.name}» و همهٔ تسک‌هاش حذف بشه؟`))return;
+  p.tasks.forEach(t=>delete S.done[t.id]);S.projects=S.projects.filter(x=>x.id!==editId);save();dlg.close();render()}
+
+function copy(v){navigator.clipboard?.writeText(v).then(()=>toast('کپی شد')).catch(()=>toast(v))}
+function exportData(){const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`airdrops-backup-${dkey()}.json`;a.click();S.lastBackup=dkey();save();toast('فایل بکاپ دانلود شد')}
+function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.projects)throw 0;if(!confirm('اطلاعات فعلی با این بکاپ جایگزین بشه؟'))return;S=d;S.done=S.done||{};S.hist=S.hist||{};save();render();toast('بازیابی شد')}catch(e){alert('فایل بکاپ معتبر نیست')}inp.value=''};r.readAsText(f)}
+
+// reset view at midnight & remind backup
+let lastDay=dkey();setInterval(()=>{if(dkey()!==lastDay){lastDay=dkey();render()}},60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
+render();
+if(S.projects.length&&(!S.lastBackup||(new Date(dkey())-new Date(S.lastBackup))/864e5>=7))setTimeout(()=>toast('یه هفته‌ست بکاپ نگرفتی 💾'),1200);
+</script>
+</body>
+</html>
