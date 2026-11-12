@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ایردراپ‌ترکر | Airdrop Daily Tracker</title>
+<title>Airdrop Daily Tracker</title>
 <meta name="description" content="A personal, offline checklist for the airdrops you already farm: log which wallet, X, Discord and browser profile each project uses, and tick off your own daily tasks. It does not find or recommend airdrops. Data stays in your browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0d1117;--card:#161b22;--card2:#1f2630;--line:#2a323d;--txt:#e6edf3;--mut:#8b96a5;--acc:#f5b83d;--ok:#3fb950;--bad:#f85149;--blue:#58a6ff}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,Tahoma,sans-serif;font-size:15px}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Vazirmatn,system-ui,-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-size:15px}
 button,input,select,textarea{font-family:inherit;font-size:14px}
 header{position:sticky;top:0;z-index:5;background:#0d1117ee;backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:12px 16px}
 .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -67,7 +67,7 @@ main{padding:16px;max-width:1300px;margin:auto}
 .note{font-size:13px;color:var(--mut);white-space:pre-wrap;background:var(--bg);padding:6px 8px;border-radius:8px}
 .empty{text-align:center;color:var(--mut);padding:50px 10px}
 table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:18px}
-th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-size:14px;vertical-align:top}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:start;font-size:14px;vertical-align:top}
 th{background:var(--card2);color:var(--mut);font-weight:600}
 td.warn{color:var(--acc)}
 h2{font-size:16px;margin:18px 0 8px}
@@ -84,69 +84,242 @@ dialog::backdrop{background:#000a}
 .toast.on{opacity:1}
 .ltr{direction:ltr;unicode-bidi:plaintext}
 @media(max-width:600px){.form{grid-template-columns:1fr}.grid{grid-template-columns:1fr}main{padding:10px}}
+.langsel{background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:7px 8px;cursor:pointer}
+.about{max-width:760px;line-height:1.8;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 20px 14px}
+.about h2{color:var(--acc)}.about li{margin:4px 0}
+.tabs{flex-wrap:wrap}
 </style>
 </head>
 <body>
 <header>
   <div class="top">
-    <h1>ایردراپ<span>‌ترکر</span></h1>
+    <h1>Airdrop<span>Tracker</span></h1>
     <span class="today" id="todayLbl"></span>
     <span class="spacer"></span>
-    <button class="btn pri" onclick="openProject()">+ پروژهٔ جدید</button>
-    <button class="btn" onclick="exportData()">بکاپ</button>
-    <button class="btn" onclick="document.getElementById('imp').click()">بازیابی</button>
+    <select id="lang" class="langsel" onchange="setLang(this.value)" aria-label="Language"></select>
+    <button class="btn pri" onclick="openProject()" data-t="newProject"></button>
+    <button class="btn" onclick="exportData()" data-t="backup"></button>
+    <button class="btn" onclick="document.getElementById('imp').click()" data-t="restore"></button>
     <input type="file" id="imp" accept=".json" hidden onchange="importData(this)">
   </div>
   <div class="overall"><span id="ovTxt" style="font-size:13px;white-space:nowrap"></span><div class="prog"><i id="ovBar"></i></div></div>
   <div class="tabs">
-    <div class="tab on" data-v="today" onclick="setView('today')">تسک‌های امروز</div>
-    <div class="tab" data-v="accounts" onclick="setView('accounts')">نقشهٔ حساب‌ها</div>
+    <div class="tab on" data-v="today" onclick="setView('today')" data-t="tabToday"></div>
+    <div class="tab" data-v="accounts" onclick="setView('accounts')" data-t="tabAccounts"></div>
+    <div class="tab" data-v="about" onclick="setView('about')" data-t="tabAbout"></div>
   </div>
   <div class="filters" id="filters">
-    <input id="q" placeholder="جست‌وجو در پروژه، کیف پول، اکانت…" oninput="render()">
+    <input id="q" data-tp="search" oninput="render()">
     <select id="fBrowser" onchange="render()"></select>
     <select id="fWallet" onchange="render()"></select>
-    <select id="fStatus" onchange="render()">
-      <option value="">همهٔ وضعیت‌ها</option><option value="active">فعال</option><option value="paused">متوقف</option><option value="ended">تمام‌شده</option>
-    </select>
-    <select id="fShow" onchange="render()">
-      <option value="">همه</option><option value="todo">فقط ناتمام‌های امروز</option><option value="done">کامل‌شده‌ها</option>
-    </select>
+    <select id="fStatus" onchange="render()"></select>
+    <select id="fShow" onchange="render()"></select>
   </div>
 </header>
 <main id="main"></main>
 
 <dialog id="dlg">
-  <h3 id="dlgT" style="margin-top:0">پروژهٔ جدید</h3>
+  <h3 id="dlgT" style="margin-top:0"></h3>
   <div class="form">
-    <label class="full">نام پروژه *<input id="p_name"></label>
-    <label class="full">لینک پروژه / داشبورد<input id="p_url" class="ltr" placeholder="https://"></label>
-    <label>کیف پول (اسم یا آدرس عمومی)<input id="p_wallet" list="dl_wallet" class="ltr"></label>
-    <label>شبکه / چین<input id="p_chain" list="dl_chain" placeholder="EVM, Solana, …"></label>
-    <label>اکانت X<input id="p_x" list="dl_x" class="ltr" placeholder="@handle"></label>
-    <label>اکانت دیسکورد<input id="p_discord" list="dl_discord" class="ltr"></label>
-    <label>مرورگر / پروفایل<input id="p_browser" list="dl_browser" placeholder="Chrome – Profile 3"></label>
-    <label>ایمیل / تلگرام<input id="p_email" list="dl_email" class="ltr"></label>
-    <label>وضعیت<select id="p_status"><option value="active">فعال</option><option value="paused">متوقف</option><option value="ended">تمام‌شده</option></select></label>
-    <label>اولویت<select id="p_prio"><option value="1">معمولی</option><option value="2">بالا ⭐</option></select></label>
-    <label>تاریخ اسنپ‌شات / TGE<input id="p_tge" type="date"></label>
-    <label>هزینهٔ انجام‌شده (دلار، گس و…)<input id="p_cost" type="number" step="any" min="0"></label>
-    <label class="full">یادداشت<textarea id="p_notes" placeholder="رفرال، امتیاز فعلی، نکات…"></textarea></label>
-    <div class="warnbox full">⚠️ هیچ‌وقت سید فریز، پرایوت‌کی یا پسورد اینجا ننویس. فقط اسم کیف پول یا آدرس عمومی.</div>
+    <label class="full"><span data-t="fName"></span><input id="p_name"></label>
+    <label class="full"><span data-t="fUrl"></span><input id="p_url" class="ltr" placeholder="https://"></label>
+    <label><span data-t="fWallet"></span><input id="p_wallet" list="dl_wallet" class="ltr"></label>
+    <label><span data-t="fChain"></span><input id="p_chain" list="dl_chain" placeholder="EVM, Solana, …"></label>
+    <label><span data-t="fX"></span><input id="p_x" list="dl_x" class="ltr" placeholder="@handle"></label>
+    <label><span data-t="fDiscord"></span><input id="p_discord" list="dl_discord" class="ltr"></label>
+    <label><span data-t="fBrowser"></span><input id="p_browser" list="dl_browser" placeholder="Chrome – Profile 3"></label>
+    <label><span data-t="fEmail"></span><input id="p_email" list="dl_email" class="ltr"></label>
+    <label><span data-t="fStatus"></span><select id="p_status"></select></label>
+    <label><span data-t="fPrio"></span><select id="p_prio"></select></label>
+    <label><span data-t="fTge"></span><input id="p_tge" type="date"></label>
+    <label><span data-t="fCost"></span><input id="p_cost" type="number" step="any" min="0"></label>
+    <label class="full"><span data-t="fNotes"></span><textarea id="p_notes" data-tp="notesPh"></textarea></label>
+    <div class="warnbox full" data-t="secWarn"></div>
   </div>
   <div class="dacts">
-    <button class="btn pri" onclick="saveProject()">ذخیره</button>
-    <button class="btn" onclick="dlg.close()">انصراف</button>
+    <button class="btn pri" onclick="saveProject()" data-t="save"></button>
+    <button class="btn" onclick="dlg.close()" data-t="cancel"></button>
     <span class="spacer"></span>
-    <button class="btn del" id="p_del" onclick="deleteProject()">حذف پروژه</button>
+    <button class="btn del" id="p_del" onclick="deleteProject()" data-t="delProject"></button>
   </div>
 </dialog>
 <datalist id="dl_wallet"></datalist><datalist id="dl_chain"></datalist><datalist id="dl_x"></datalist><datalist id="dl_discord"></datalist><datalist id="dl_browser"></datalist><datalist id="dl_email"></datalist>
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY='airdropTracker.v1';
-const FQ={daily:'روزانه',weekly:'هفتگی',once:'یک‌بار'};
+const I18N={
+en:{name:'English',dir:'ltr',loc:'en-US',
+ newProject:'+ New project',backup:'Backup',restore:'Restore',tabToday:"Today's tasks",tabAccounts:'Account map',tabAbout:'About',
+ search:'Search projects, wallets, accounts…',allBrowsers:'All browsers',allWallets:'All wallets',allStatus:'All statuses',
+ active:'Active',paused:'Paused',ended:'Ended',showAll:'All',showTodo:"Only unfinished today",showDone:'Completed',
+ overall:(d,n,pd,pn)=>`Today: <b>${d}</b> of ${n} tasks &nbsp;|&nbsp; <b>${pd}</b> of ${pn} projects done`,
+ newTitle:'New project',editTitle:'Edit project',fName:'Project name *',fUrl:'Project / dashboard link',fWallet:'Wallet (name or public address)',fChain:'Network / chain',
+ fX:'X account',fDiscord:'Discord account',fBrowser:'Browser / profile',fEmail:'Email / Telegram',fStatus:'Status',fPrio:'Priority',prioN:'Normal',prioH:'High ⭐',
+ fTge:'Snapshot / TGE date',fCost:'Spent so far ($, gas…)',fNotes:'Notes',notesPh:'Referral, current points, tips…',
+ secWarn:'⚠️ Never write seed phrases, private keys or passwords here, only a wallet name or public address.',
+ save:'Save',cancel:'Cancel',delProject:'Delete project',open:'Open ↗',edit:'Edit',
+ daily:'Daily',weekly:'Weekly',once:'One-time',noTasks:'No tasks yet. Add one below.',newTask:'New task… (you can put a link at the end)',
+ daysToTge:d=>`${d} days to TGE`,tgePassed:'TGE passed',heat:'Last 14 days',delTaskQ:'Delete this task?',
+ doneToast:n=>`✅ ${n} is done for today`,needName:'Enter a project name',seedQ:'This looks like a seed phrase or private key! Save anyway?',
+ delProjQ:n=>`Delete "${n}" and all its tasks?`,copied:'Copied',backupDone:'Backup file downloaded',restoreQ:'Replace current data with this backup?',
+ restored:'Restored',badFile:'Not a valid backup file',backupRemind:"It's been a week since your last backup 💾",
+ emptyIntro:"A personal notebook for the airdrops <b>you already farm</b>. It's not an airdrop finder.<br>Add your projects with their wallet, accounts and browser, then tick off your daily tasks.<br>Everything stays in your own browser.",
+ firstProject:'+ Add your first project',noMatch:'Nothing matches these filters.',
+ gWallet:'👛 Wallets',gX:'𝕏 X accounts',gDiscord:'💬 Discord',gBrowser:'🌐 Browsers / profiles',gEmail:'✉️ Email / Telegram',
+ colAcc:'Account',colCount:'Count',colProjects:'Projects',noWallet:'No wallet recorded',totalCost:'Total spent',
+ accEmpty:"Once you add projects with wallets and accounts, you'll see here which ones are linked to which projects.",
+ about:`<h2>What is this?</h2><p>A <b>personal checklist and account organizer</b> for airdrops and testnets you're <b>already</b> farming.</p>
+ <p><b>It does not find, list or recommend airdrops</b>, and it never connects to a wallet or a blockchain.</p>
+ <h2>What it does</h2><ul><li>One card per project, with the wallet, chain, X, Discord, browser profile and email/Telegram you use for it.</li>
+ <li>You add your own tasks: daily, weekly or one-time. Daily checks reset every night.</li>
+ <li>Progress bars, a 🔥 streak and a 14-day history for each project.</li>
+ <li>An account map showing which wallet or account is used in which projects.</li>
+ <li>JSON backup and restore, which also moves your data between phone and PC.</li></ul>
+ <h2>Privacy</h2><p>All data lives only in <b>your browser's local storage</b>. There's no server and nothing is uploaded. Anyone else opening this link gets their own empty app.</p>`},
+fa:{name:'فارسی',dir:'rtl',loc:'fa-IR',digits:'۰۱۲۳۴۵۶۷۸۹',
+ newProject:'+ پروژهٔ جدید',backup:'بکاپ',restore:'بازیابی',tabToday:'تسک‌های امروز',tabAccounts:'نقشهٔ حساب‌ها',tabAbout:'درباره',
+ search:'جست‌وجو در پروژه، کیف پول، اکانت…',allBrowsers:'همهٔ مرورگرها',allWallets:'همهٔ کیف پول‌ها',allStatus:'همهٔ وضعیت‌ها',
+ active:'فعال',paused:'متوقف',ended:'تمام‌شده',showAll:'همه',showTodo:'فقط ناتمام‌های امروز',showDone:'کامل‌شده‌ها',
+ overall:(d,n,pd,pn)=>`امروز: <b>${d}</b> از ${n} تسک &nbsp;|&nbsp; <b>${pd}</b> از ${pn} پروژه کامل`,
+ newTitle:'پروژهٔ جدید',editTitle:'ویرایش پروژه',fName:'نام پروژه *',fUrl:'لینک پروژه / داشبورد',fWallet:'کیف پول (اسم یا آدرس عمومی)',fChain:'شبکه / چین',
+ fX:'اکانت X',fDiscord:'اکانت دیسکورد',fBrowser:'مرورگر / پروفایل',fEmail:'ایمیل / تلگرام',fStatus:'وضعیت',fPrio:'اولویت',prioN:'معمولی',prioH:'بالا ⭐',
+ fTge:'تاریخ اسنپ‌شات / TGE',fCost:'هزینهٔ انجام‌شده (دلار، گس و…)',fNotes:'یادداشت',notesPh:'رفرال، امتیاز فعلی، نکات…',
+ secWarn:'⚠️ هیچ‌وقت سید فریز، پرایوت‌کی یا پسورد اینجا ننویس. فقط اسم کیف پول یا آدرس عمومی.',
+ save:'ذخیره',cancel:'انصراف',delProject:'حذف پروژه',open:'باز کن ↗',edit:'ویرایش',
+ daily:'روزانه',weekly:'هفتگی',once:'یک‌بار',noTasks:'هنوز تسکی نداره؛ پایین اضافه کن.',newTask:'تسک جدید… (لینک هم می‌تونی آخرش بذاری)',
+ daysToTge:d=>`${d} روز تا TGE`,tgePassed:'TGE گذشته',heat:'۱۴ روز اخیر',delTaskQ:'این تسک حذف بشه؟',
+ doneToast:n=>`✅ ${n} برای امروز کامل شد`,needName:'اسم پروژه رو بنویس',seedQ:'به نظر شبیه سید فریز یا پرایوت‌کیه! مطمئنی ذخیره بشه؟',
+ delProjQ:n=>`«${n}» و همهٔ تسک‌هاش حذف بشه؟`,copied:'کپی شد',backupDone:'فایل بکاپ دانلود شد',restoreQ:'اطلاعات فعلی با این بکاپ جایگزین بشه؟',
+ restored:'بازیابی شد',badFile:'فایل بکاپ معتبر نیست',backupRemind:'یه هفته‌ست بکاپ نگرفتی 💾',
+ emptyIntro:'یه دفترچهٔ شخصی برای ایردراپ‌هایی که <b>خودت انجام می‌دی</b>؛ ایردراپ‌یاب نیست.<br>پروژه‌هات رو با کیف پول، اکانت‌ها و مرورگرش ثبت کن و تسک‌های روزانه‌ت رو تیک بزن.<br>همهٔ اطلاعات فقط توی مرورگر خودت ذخیره می‌شه.',
+ firstProject:'+ اولین پروژه رو اضافه کن',noMatch:'چیزی با این فیلتر پیدا نشد.',
+ gWallet:'👛 کیف پول',gX:'𝕏 اکانت X',gDiscord:'💬 دیسکورد',gBrowser:'🌐 مرورگر / پروفایل',gEmail:'✉️ ایمیل / تلگرام',
+ colAcc:'حساب',colCount:'تعداد',colProjects:'پروژه‌ها',noWallet:'بدون کیف پول ثبت‌شده',totalCost:'جمع هزینه‌ها',
+ accEmpty:'وقتی پروژه با کیف پول و اکانت ثبت کنی، اینجا می‌بینی هر کدوم به چه پروژه‌هایی وصله.',
+ about:`<h2>این چیه؟</h2><p>یه <b>دفترچهٔ شخصی و مرتب‌کنندهٔ اکانت‌ها</b> برای ایردراپ‌ها و تستنت‌هایی که <b>خودت</b> انجام می‌دی.</p>
+ <p><b>ایردراپ پیدا نمی‌کنه، لیست یا پیشنهاد نمی‌ده</b> و به هیچ کیف پول یا بلاکچینی وصل نمی‌شه.</p>
+ <h2>چه کار می‌کنه</h2><ul><li>برای هر پروژه یه کارت، با کیف پول، شبکه، X، دیسکورد، پروفایل مرورگر و ایمیل یا تلگرامی که براش استفاده می‌کنی.</li>
+ <li>تسک‌ها رو خودت اضافه می‌کنی: روزانه، هفتگی یا یک‌باره. چک‌های روزانه هر شب ریست می‌شن.</li>
+ <li>نوار پیشرفت، استریک 🔥 و تاریخچهٔ ۱۴ روزه برای هر پروژه.</li>
+ <li>نقشهٔ حساب‌ها، که نشون می‌ده هر کیف پول یا اکانت تو کدوم پروژه‌هاست.</li>
+ <li>بکاپ و بازیابی JSON، که برای انتقال اطلاعات بین گوشی و کامپیوتر هم به کار می‌آد.</li></ul>
+ <h2>حریم خصوصی</h2><p>همهٔ اطلاعات فقط توی <b>حافظهٔ مرورگر خودت</b> ذخیره می‌شه. سروری در کار نیست و چیزی آپلود نمی‌شه.</p>`},
+ru:{name:'Русский',dir:'ltr',loc:'ru-RU',
+ newProject:'+ Новый проект',backup:'Бэкап',restore:'Восстановить',tabToday:'Задачи на сегодня',tabAccounts:'Карта аккаунтов',tabAbout:'О приложении',
+ search:'Поиск по проектам, кошелькам, аккаунтам…',allBrowsers:'Все браузеры',allWallets:'Все кошельки',allStatus:'Все статусы',
+ active:'Активен',paused:'На паузе',ended:'Завершён',showAll:'Все',showTodo:'Только незавершённые сегодня',showDone:'Выполненные',
+ overall:(d,n,pd,pn)=>`Сегодня: <b>${d}</b> из ${n} задач &nbsp;|&nbsp; <b>${pd}</b> из ${pn} проектов готово`,
+ newTitle:'Новый проект',editTitle:'Редактировать проект',fName:'Название проекта *',fUrl:'Ссылка на проект / дашборд',fWallet:'Кошелёк (имя или публичный адрес)',fChain:'Сеть / чейн',
+ fX:'Аккаунт X',fDiscord:'Аккаунт Discord',fBrowser:'Браузер / профиль',fEmail:'Email / Telegram',fStatus:'Статус',fPrio:'Приоритет',prioN:'Обычный',prioH:'Высокий ⭐',
+ fTge:'Дата снапшота / TGE',fCost:'Потрачено ($, газ…)',fNotes:'Заметки',notesPh:'Реферал, текущие поинты, советы…',
+ secWarn:'⚠️ Никогда не вводите сид-фразы, приватные ключи или пароли. Только имя кошелька или публичный адрес.',
+ save:'Сохранить',cancel:'Отмена',delProject:'Удалить проект',open:'Открыть ↗',edit:'Изменить',
+ daily:'Ежедневно',weekly:'Еженедельно',once:'Разово',noTasks:'Задач пока нет — добавьте ниже.',newTask:'Новая задача… (ссылку можно в конце)',
+ daysToTge:d=>`${d} дн. до TGE`,tgePassed:'TGE прошёл',heat:'Последние 14 дней',delTaskQ:'Удалить эту задачу?',
+ doneToast:n=>`✅ ${n}: всё на сегодня выполнено`,needName:'Введите название проекта',seedQ:'Похоже на сид-фразу или приватный ключ! Всё равно сохранить?',
+ delProjQ:n=>`Удалить «${n}» и все его задачи?`,copied:'Скопировано',backupDone:'Файл бэкапа скачан',restoreQ:'Заменить текущие данные этим бэкапом?',
+ restored:'Восстановлено',badFile:'Неверный файл бэкапа',backupRemind:'Неделя без бэкапа 💾',
+ emptyIntro:'Личный блокнот для аирдропов, которые <b>вы уже фармите</b>. Это не поисковик аирдропов.<br>Добавьте проекты с кошельком, аккаунтами и браузером и отмечайте ежедневные задачи.<br>Все данные хранятся только в вашем браузере.',
+ firstProject:'+ Добавить первый проект',noMatch:'Ничего не найдено по этим фильтрам.',
+ gWallet:'👛 Кошельки',gX:'𝕏 Аккаунты X',gDiscord:'💬 Discord',gBrowser:'🌐 Браузеры / профили',gEmail:'✉️ Email / Telegram',
+ colAcc:'Аккаунт',colCount:'Кол-во',colProjects:'Проекты',noWallet:'Без кошелька',totalCost:'Всего потрачено',
+ accEmpty:'Когда вы добавите проекты с кошельками и аккаунтами, здесь будет видно, что к какому проекту привязано.',
+ about:`<h2>Что это?</h2><p><b>Личный чек-лист и органайзер аккаунтов</b> для аирдропов и тестнетов, которые вы <b>уже</b> фармите.</p>
+ <p><b>Он не ищет, не публикует и не рекомендует аирдропы</b> и никогда не подключается к кошельку или блокчейну.</p>
+ <h2>Возможности</h2><ul><li>Карточка на каждый проект: кошелёк, сеть, X, Discord, профиль браузера, email/Telegram.</li>
+ <li>Свои задачи: ежедневные, еженедельные или разовые. Ежедневные отметки сбрасываются каждую ночь.</li>
+ <li>Прогресс, серия 🔥 и история за 14 дней по каждому проекту.</li>
+ <li>Карта аккаунтов: какой кошелёк или аккаунт в каких проектах.</li>
+ <li>Бэкап и восстановление в JSON, в том числе для переноса между телефоном и ПК.</li></ul>
+ <h2>Приватность</h2><p>Все данные хранятся только в <b>локальном хранилище вашего браузера</b>. Сервера нет, ничего не загружается.</p>`},
+tr:{name:'Türkçe',dir:'ltr',loc:'tr-TR',
+ newProject:'+ Yeni proje',backup:'Yedekle',restore:'Geri yükle',tabToday:'Bugünkü görevler',tabAccounts:'Hesap haritası',tabAbout:'Hakkında',
+ search:'Proje, cüzdan, hesap ara…',allBrowsers:'Tüm tarayıcılar',allWallets:'Tüm cüzdanlar',allStatus:'Tüm durumlar',
+ active:'Aktif',paused:'Duraklatıldı',ended:'Bitti',showAll:'Hepsi',showTodo:'Sadece bugün bitmeyenler',showDone:'Tamamlananlar',
+ overall:(d,n,pd,pn)=>`Bugün: <b>${d}</b>/${n} görev &nbsp;|&nbsp; <b>${pd}</b>/${pn} proje tamam`,
+ newTitle:'Yeni proje',editTitle:'Projeyi düzenle',fName:'Proje adı *',fUrl:'Proje / panel bağlantısı',fWallet:'Cüzdan (ad veya genel adres)',fChain:'Ağ / zincir',
+ fX:'X hesabı',fDiscord:'Discord hesabı',fBrowser:'Tarayıcı / profil',fEmail:'E-posta / Telegram',fStatus:'Durum',fPrio:'Öncelik',prioN:'Normal',prioH:'Yüksek ⭐',
+ fTge:'Snapshot / TGE tarihi',fCost:'Harcanan ($, gas…)',fNotes:'Notlar',notesPh:'Referans, mevcut puan, ipuçları…',
+ secWarn:'⚠️ Buraya asla seed phrase, private key veya şifre yazma. Sadece cüzdan adı ya da genel adres.',
+ save:'Kaydet',cancel:'İptal',delProject:'Projeyi sil',open:'Aç ↗',edit:'Düzenle',
+ daily:'Günlük',weekly:'Haftalık',once:'Tek sefer',noTasks:'Henüz görev yok, aşağıdan ekle.',newTask:'Yeni görev… (sonuna link ekleyebilirsin)',
+ daysToTge:d=>`TGE'ye ${d} gün`,tgePassed:'TGE geçti',heat:'Son 14 gün',delTaskQ:'Bu görev silinsin mi?',
+ doneToast:n=>`✅ ${n} bugün için tamam`,needName:'Proje adını yaz',seedQ:'Bu bir seed phrase veya private key gibi görünüyor! Yine de kaydedilsin mi?',
+ delProjQ:n=>`"${n}" ve tüm görevleri silinsin mi?`,copied:'Kopyalandı',backupDone:'Yedek dosyası indirildi',restoreQ:'Mevcut veriler bu yedekle değiştirilsin mi?',
+ restored:'Geri yüklendi',badFile:'Geçerli bir yedek dosyası değil',backupRemind:'Bir haftadır yedek almadın 💾',
+ emptyIntro:'<b>Zaten farmladığın</b> airdrop’lar için kişisel bir defter. Airdrop bulucu değildir.<br>Projelerini cüzdanı, hesapları ve tarayıcısıyla ekle, günlük görevlerini işaretle.<br>Tüm veriler sadece kendi tarayıcında kalır.',
+ firstProject:'+ İlk projeni ekle',noMatch:'Bu filtrelerle sonuç yok.',
+ gWallet:'👛 Cüzdanlar',gX:'𝕏 X hesapları',gDiscord:'💬 Discord',gBrowser:'🌐 Tarayıcılar / profiller',gEmail:'✉️ E-posta / Telegram',
+ colAcc:'Hesap',colCount:'Sayı',colProjects:'Projeler',noWallet:'Cüzdan kaydı yok',totalCost:'Toplam harcama',
+ accEmpty:'Cüzdan ve hesaplarla proje ekleyince, hangisinin hangi projeye bağlı olduğunu burada görürsün.',
+ about:`<h2>Bu nedir?</h2><p><b>Zaten</b> farmladığın airdrop ve testnet’ler için <b>kişisel bir kontrol listesi ve hesap düzenleyici</b>.</p>
+ <p><b>Airdrop bulmaz, listelemez veya önermez</b>; hiçbir cüzdana ya da blokzincire bağlanmaz.</p>
+ <h2>Ne yapar</h2><ul><li>Her proje için bir kart: kullandığın cüzdan, ağ, X, Discord, tarayıcı profili, e-posta/Telegram.</li>
+ <li>Kendi görevlerin: günlük, haftalık veya tek seferlik. Günlük işaretler her gece sıfırlanır.</li>
+ <li>Her proje için ilerleme çubuğu, 🔥 seri ve 14 günlük geçmiş.</li>
+ <li>Hangi cüzdan veya hesabın hangi projelerde kullanıldığını gösteren hesap haritası.</li>
+ <li>JSON yedekleme ve geri yükleme; telefon ile PC arasında taşımak için de.</li></ul>
+ <h2>Gizlilik</h2><p>Tüm veriler sadece <b>tarayıcının yerel depolamasında</b> durur. Sunucu yok, hiçbir şey yüklenmez.</p>`},
+es:{name:'Español',dir:'ltr',loc:'es-ES',
+ newProject:'+ Nuevo proyecto',backup:'Copia',restore:'Restaurar',tabToday:'Tareas de hoy',tabAccounts:'Mapa de cuentas',tabAbout:'Acerca de',
+ search:'Buscar proyectos, wallets, cuentas…',allBrowsers:'Todos los navegadores',allWallets:'Todas las wallets',allStatus:'Todos los estados',
+ active:'Activo',paused:'En pausa',ended:'Terminado',showAll:'Todos',showTodo:'Solo pendientes de hoy',showDone:'Completados',
+ overall:(d,n,pd,pn)=>`Hoy: <b>${d}</b> de ${n} tareas &nbsp;|&nbsp; <b>${pd}</b> de ${pn} proyectos listos`,
+ newTitle:'Nuevo proyecto',editTitle:'Editar proyecto',fName:'Nombre del proyecto *',fUrl:'Enlace del proyecto / panel',fWallet:'Wallet (nombre o dirección pública)',fChain:'Red / cadena',
+ fX:'Cuenta de X',fDiscord:'Cuenta de Discord',fBrowser:'Navegador / perfil',fEmail:'Email / Telegram',fStatus:'Estado',fPrio:'Prioridad',prioN:'Normal',prioH:'Alta ⭐',
+ fTge:'Fecha de snapshot / TGE',fCost:'Gastado ($, gas…)',fNotes:'Notas',notesPh:'Referido, puntos actuales, consejos…',
+ secWarn:'⚠️ Nunca escribas aquí frases semilla, claves privadas ni contraseñas. Solo el nombre de la wallet o su dirección pública.',
+ save:'Guardar',cancel:'Cancelar',delProject:'Eliminar proyecto',open:'Abrir ↗',edit:'Editar',
+ daily:'Diaria',weekly:'Semanal',once:'Una vez',noTasks:'Aún no hay tareas; añade una abajo.',newTask:'Nueva tarea… (puedes poner un enlace al final)',
+ daysToTge:d=>`${d} días para el TGE`,tgePassed:'TGE pasado',heat:'Últimos 14 días',delTaskQ:'¿Eliminar esta tarea?',
+ doneToast:n=>`✅ ${n} completado por hoy`,needName:'Escribe el nombre del proyecto',seedQ:'¡Parece una frase semilla o clave privada! ¿Guardar de todos modos?',
+ delProjQ:n=>`¿Eliminar "${n}" y todas sus tareas?`,copied:'Copiado',backupDone:'Archivo de copia descargado',restoreQ:'¿Reemplazar los datos actuales con esta copia?',
+ restored:'Restaurado',badFile:'Archivo de copia no válido',backupRemind:'Llevas una semana sin copia de seguridad 💾',
+ emptyIntro:'Un cuaderno personal para los airdrops <b>que ya farmeas</b>. No es un buscador de airdrops.<br>Añade tus proyectos con su wallet, cuentas y navegador, y marca tus tareas diarias.<br>Todo se guarda solo en tu navegador.',
+ firstProject:'+ Añade tu primer proyecto',noMatch:'Nada coincide con estos filtros.',
+ gWallet:'👛 Wallets',gX:'𝕏 Cuentas de X',gDiscord:'💬 Discord',gBrowser:'🌐 Navegadores / perfiles',gEmail:'✉️ Email / Telegram',
+ colAcc:'Cuenta',colCount:'Cantidad',colProjects:'Proyectos',noWallet:'Sin wallet registrada',totalCost:'Gasto total',
+ accEmpty:'Cuando añadas proyectos con wallets y cuentas, aquí verás cuál está vinculada a cada proyecto.',
+ about:`<h2>¿Qué es esto?</h2><p>Una <b>lista de control personal y organizador de cuentas</b> para los airdrops y testnets que <b>ya</b> estás farmeando.</p>
+ <p><b>No busca, lista ni recomienda airdrops</b>, y nunca se conecta a una wallet ni a una blockchain.</p>
+ <h2>Qué hace</h2><ul><li>Una tarjeta por proyecto con la wallet, red, X, Discord, perfil de navegador y email/Telegram que usas.</li>
+ <li>Tus propias tareas: diarias, semanales o de una vez. Las marcas diarias se reinician cada noche.</li>
+ <li>Barras de progreso, racha 🔥 e historial de 14 días por proyecto.</li>
+ <li>Un mapa de cuentas que muestra qué wallet o cuenta se usa en qué proyectos.</li>
+ <li>Copia y restauración en JSON, también para pasar los datos entre móvil y PC.</li></ul>
+ <h2>Privacidad</h2><p>Todos los datos viven solo en el <b>almacenamiento local de tu navegador</b>. No hay servidor y no se sube nada.</p>`},
+zh:{name:'中文',dir:'ltr',loc:'zh-CN',
+ newProject:'+ 新项目',backup:'备份',restore:'恢复',tabToday:'今日任务',tabAccounts:'账号映射',tabAbout:'关于',
+ search:'搜索项目、钱包、账号…',allBrowsers:'所有浏览器',allWallets:'所有钱包',allStatus:'所有状态',
+ active:'进行中',paused:'已暂停',ended:'已结束',showAll:'全部',showTodo:'仅今日未完成',showDone:'已完成',
+ overall:(d,n,pd,pn)=>`今日：<b>${d}</b>/${n} 个任务 &nbsp;|&nbsp; <b>${pd}</b>/${pn} 个项目已完成`,
+ newTitle:'新项目',editTitle:'编辑项目',fName:'项目名称 *',fUrl:'项目 / 仪表盘链接',fWallet:'钱包（名称或公开地址）',fChain:'网络 / 链',
+ fX:'X 账号',fDiscord:'Discord 账号',fBrowser:'浏览器 / 配置文件',fEmail:'邮箱 / Telegram',fStatus:'状态',fPrio:'优先级',prioN:'普通',prioH:'高 ⭐',
+ fTge:'快照 / TGE 日期',fCost:'已花费（$、Gas…）',fNotes:'备注',notesPh:'邀请码、当前积分、技巧…',
+ secWarn:'⚠️ 切勿在此填写助记词、私钥或密码，只填钱包名称或公开地址。',
+ save:'保存',cancel:'取消',delProject:'删除项目',open:'打开 ↗',edit:'编辑',
+ daily:'每日',weekly:'每周',once:'一次性',noTasks:'暂无任务，在下方添加。',newTask:'新任务…（末尾可附链接）',
+ daysToTge:d=>`距 TGE ${d} 天`,tgePassed:'TGE 已过',heat:'最近 14 天',delTaskQ:'删除此任务？',
+ doneToast:n=>`✅ ${n} 今日已完成`,needName:'请输入项目名称',seedQ:'这看起来像助记词或私钥！仍要保存吗？',
+ delProjQ:n=>`删除「${n}」及其所有任务？`,copied:'已复制',backupDone:'备份文件已下载',restoreQ:'用此备份替换当前数据？',
+ restored:'已恢复',badFile:'无效的备份文件',backupRemind:'已经一周没有备份了 💾',
+ emptyIntro:'为<b>你已经在撸</b>的空投准备的个人记事本。这不是空投发现工具。<br>添加项目及其钱包、账号和浏览器，然后勾选每日任务。<br>所有数据只保存在你自己的浏览器中。',
+ firstProject:'+ 添加第一个项目',noMatch:'没有符合筛选条件的结果。',
+ gWallet:'👛 钱包',gX:'𝕏 X 账号',gDiscord:'💬 Discord',gBrowser:'🌐 浏览器 / 配置文件',gEmail:'✉️ 邮箱 / Telegram',
+ colAcc:'账号',colCount:'数量',colProjects:'项目',noWallet:'未记录钱包',totalCost:'总花费',
+ accEmpty:'添加带有钱包和账号的项目后，这里会显示它们分别关联了哪些项目。',
+ about:`<h2>这是什么？</h2><p>一个为你<b>已经在撸</b>的空投和测试网准备的<b>个人清单和账号整理工具</b>。</p>
+ <p><b>它不会发现、列出或推荐空投</b>，也从不连接任何钱包或区块链。</p>
+ <h2>功能</h2><ul><li>每个项目一张卡片：记录所用钱包、链、X、Discord、浏览器配置文件和邮箱/Telegram。</li>
+ <li>自行添加任务：每日、每周或一次性。每日勾选每晚重置。</li>
+ <li>每个项目的进度条、🔥 连续天数和 14 天历史。</li>
+ <li>账号映射：查看每个钱包或账号用于哪些项目。</li>
+ <li>JSON 备份与恢复，也可用于在手机和电脑之间迁移数据。</li></ul>
+ <h2>隐私</h2><p>所有数据只保存在<b>你浏览器的本地存储</b>中。没有服务器，不上传任何内容。</p>`}
+};
+const KEY='airdropTracker.v1',LKEY='airdropTracker.lang';
+let L=localStorage.getItem(LKEY)||'en';if(!I18N[L])L='en';
+function T(k,...a){const v=I18N[L][k]??I18N.en[k];return typeof v==='function'?v(...a):v}
 let S=load(), view='today', editId=null;
 const dlg=document.getElementById('dlg');
 
@@ -155,115 +328,126 @@ function save(){localStorage.setItem(KEY,JSON.stringify(S))}
 function uid(){return Math.random().toString(36).slice(2,10)}
 function pad(n){return String(n).padStart(2,'0')}
 function dkey(d=new Date()){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
-function wkey(d=new Date()){const x=new Date(d);const day=(x.getDay()+1)%7;x.setDate(x.getDate()-day);return 'w'+dkey(x)} // week starts Saturday
+function wkey(d=new Date()){const x=new Date(d);const day=(x.getDay()+1)%7;x.setDate(x.getDate()-day);return 'w'+dkey(x)} // weeks start Saturday
 function period(t){return t.freq==='weekly'?wkey():t.freq==='once'?'once':dkey()}
 function isDone(t){return S.done[t.id]===period(t)}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function fa(n){return String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d])}
+function N(n){const dg=I18N[L].digits;return dg?String(n).replace(/\d/g,d=>dg[d]):String(n)}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1800)}
 function short(s){s=String(s||'');return /^0x[0-9a-f]{20,}$/i.test(s)||s.length>24?s.slice(0,6)+'…'+s.slice(-4):s}
 
-function visibleTasks(p){return p.tasks.filter(t=>!(t.freq==='once'&&S.done[t.id]==='once'&&false))}
+function applyLang(){
+  const d=I18N[L];document.documentElement.lang=L;document.documentElement.dir=d.dir;
+  document.querySelectorAll('[data-t]').forEach(e=>e.innerHTML=T(e.dataset.t));
+  document.querySelectorAll('[data-tp]').forEach(e=>e.placeholder=T(e.dataset.tp));
+  const opt=(id,arr)=>{const el=document.getElementById(id),v=el.value;el.innerHTML=arr.map(([val,k])=>`<option value="${val}">${T(k)}</option>`).join('');el.value=v||arr[0][0]};
+  opt('fStatus',[['','allStatus'],['active','active'],['paused','paused'],['ended','ended']]);
+  opt('fShow',[['','showAll'],['todo','showTodo'],['done','showDone']]);
+  opt('p_status',[['active','active'],['paused','paused'],['ended','ended']]);
+  opt('p_prio',[['1','prioN'],['2','prioH']]);
+  document.getElementById('lang').innerHTML=Object.entries(I18N).map(([k,v])=>`<option value="${k}" ${k===L?'selected':''}>🌐 ${v.name}</option>`).join('');
+}
+function setLang(l){L=l;localStorage.setItem(LKEY,l);applyLang();render()}
+
 function projStats(p){const ts=p.tasks;const d=ts.filter(isDone).length;return{d,n:ts.length}}
 function recordHist(p){const today=dkey();S.hist[today]=S.hist[today]||{};const{d,n}=projStats(p);S.hist[today][p.id]=[d,n]}
-function streak(p){let s=0;const d=new Date();const today=dkey(d);const h=S.hist[today]?.[p.id];if(!(h&&h[1]&&h[0]>=h[1]))d.setDate(d.getDate()-1);
+function streak(p){let s=0;const d=new Date();const h=S.hist[dkey(d)]?.[p.id];if(!(h&&h[1]&&h[0]>=h[1]))d.setDate(d.getDate()-1);
   for(let i=0;i<400;i++){const r=S.hist[dkey(d)]?.[p.id];if(r&&r[1]&&r[0]>=r[1]){s++;d.setDate(d.getDate()-1)}else break}return s}
 function heat(p){let h='';const d=new Date();d.setDate(d.getDate()-13);for(let i=0;i<14;i++){const r=S.hist[dkey(d)]?.[p.id];let c='';if(r&&r[1]){c=r[0]>=r[1]?'h2':r[0]>0?'h1':''}h+=`<i class="${c}" title="${dkey(d)}"></i>`;d.setDate(d.getDate()+1)}return h}
 
 function setView(v){view=v;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));render()}
-
 function uniq(f){return [...new Set(S.projects.map(p=>p[f]).filter(Boolean))].sort()}
-function fillSelect(id,f,label){const el=document.getElementById(id),v=el.value;el.innerHTML=`<option value="">${label}</option>`+uniq(f).map(x=>`<option ${x===v?'selected':''} value="${esc(x)}">${esc(short(x))}</option>`).join('')}
+function fillSelect(id,f,k){const el=document.getElementById(id),v=el.value;el.innerHTML=`<option value="">${T(k)}</option>`+uniq(f).map(x=>`<option ${x===v?'selected':''} value="${esc(x)}">${esc(short(x))}</option>`).join('')}
 function fillLists(){['wallet','chain','x','discord','browser','email'].forEach(f=>document.getElementById('dl_'+f).innerHTML=uniq(f).map(x=>`<option value="${esc(x)}">`).join(''))}
 
 function filtered(){const q=document.getElementById('q').value.trim().toLowerCase(),fb=fBrowser.value,fw=fWallet.value,fs=fStatus.value,sh=fShow.value;
+  const full=p=>{const s=projStats(p);return s.n&&s.d>=s.n};
   return S.projects.filter(p=>{
     if(fb&&p.browser!==fb)return false;if(fw&&p.wallet!==fw)return false;if(fs&&p.status!==fs)return false;
-    const{d,n}=projStats(p);if(sh==='todo'&&(n===0||d>=n))return false;if(sh==='done'&&!(n&&d>=n))return false;
+    const{n}=projStats(p);if(sh==='todo'&&(n===0||full(p)))return false;if(sh==='done'&&!full(p))return false;
     if(q){const hay=[p.name,p.wallet,p.x,p.discord,p.browser,p.email,p.chain,p.notes,...p.tasks.map(t=>t.title)].join(' ').toLowerCase();if(!hay.includes(q))return false}
-    return true}).sort((a,b)=>(a.status==='active'?0:1)-(b.status==='active'?0:1)||(b.prio||1)-(a.prio||1)||(projStats(a).d>=projStats(a).n)-(projStats(b).d>=projStats(b).n)||a.name.localeCompare(b.name,'fa'))}
+    return true}).sort((a,b)=>(a.status==='active'?0:1)-(b.status==='active'?0:1)||(b.prio||1)-(a.prio||1)||full(a)-full(b)||a.name.localeCompare(b.name))}
 
 function render(){
-  fillSelect('fBrowser','browser','همهٔ مرورگرها');fillSelect('fWallet','wallet','همهٔ کیف پول‌ها');fillLists();
-  const now=new Date();document.getElementById('todayLbl').textContent=now.toLocaleDateString('fa-IR',{weekday:'long',day:'numeric',month:'long'});
-  let D=0,N=0,PD=0;const act=S.projects.filter(p=>p.status==='active');act.forEach(p=>{const s=projStats(p);D+=s.d;N+=s.n;if(s.n&&s.d>=s.n)PD++});
-  document.getElementById('ovTxt').innerHTML=`امروز: <b>${fa(D)}</b> از ${fa(N)} تسک &nbsp;|&nbsp; <b>${fa(PD)}</b> از ${fa(act.length)} پروژه کامل`;
-  document.getElementById('ovBar').style.width=(N?D/N*100:0)+'%';
+  fillSelect('fBrowser','browser','allBrowsers');fillSelect('fWallet','wallet','allWallets');fillLists();
+  document.getElementById('todayLbl').textContent=new Date().toLocaleDateString(I18N[L].loc,{weekday:'long',day:'numeric',month:'long'});
+  let D=0,Nn=0,PD=0;const act=S.projects.filter(p=>p.status==='active');act.forEach(p=>{const s=projStats(p);D+=s.d;Nn+=s.n;if(s.n&&s.d>=s.n)PD++});
+  document.getElementById('ovTxt').innerHTML=T('overall',N(D),N(Nn),N(PD),N(act.length));
+  document.getElementById('ovBar').style.width=(Nn?D/Nn*100:0)+'%';
   document.getElementById('filters').style.display=view==='today'?'flex':'none';
-  view==='today'?renderToday():renderAccounts();
+  ({today:renderToday,accounts:renderAccounts,about:renderAbout})[view]();
 }
-
+function renderAbout(){document.getElementById('main').innerHTML=`<div class="about">${T('about')}</div>`}
 function renderToday(){
   const m=document.getElementById('main');const list=filtered();
-  if(!S.projects.length){m.innerHTML=`<div class="empty">این یه دفترچهٔ شخصیه برای ایردراپ‌هایی که خودت انجام می‌دی، نه ایردراپ‌یاب.<br>پروژه‌هات رو با کیف پول، اکانت‌ها و مرورگرش ثبت کن و تسک‌های روزانه‌ت رو تیک بزن.<br>همهٔ اطلاعات فقط توی مرورگر خودت ذخیره می‌شه.<br><br><button class="btn pri" onclick="openProject()">+ اولین پروژه رو اضافه کن</button></div>`;return}
-  if(!list.length){m.innerHTML=`<div class="empty">چیزی با این فیلتر پیدا نشد.</div>`;return}
+  if(!S.projects.length){m.innerHTML=`<div class="empty">${T('emptyIntro')}<br><br><button class="btn pri" onclick="openProject()">${T('firstProject')}</button></div>`;return}
+  if(!list.length){m.innerHTML=`<div class="empty">${T('noMatch')}</div>`;return}
   m.innerHTML='<div class="grid">'+list.map(card).join('')+'</div>';
 }
-function chip(lbl,v,f){return v?`<span class="chip ltr" title="${esc(v)} — کلیک برای کپی" onclick="copy('${esc(v).replace(/'/g,"\\'")}')"><b>${lbl}</b>${esc(short(v))}</span>`:''}
+function chip(lbl,v){return v?`<span class="chip ltr" title="${esc(v)}" onclick="copy(this.title)"><b>${lbl}</b>${esc(short(v))}</span>`:''}
 function card(p){
   const{d,n}=projStats(p),full=n&&d>=n,st=streak(p);
   const days=p.tge?Math.ceil((new Date(p.tge)-new Date(dkey()))/864e5):null;
   return `<div class="card ${full?'done':''} ${p.status!=='active'?'paused':''}">
   <div class="ch">${p.prio==2?'<span class="badge hi">⭐</span>':''}<h3 title="${esc(p.name)}">${esc(p.name)}</h3>
-    ${p.status!=='active'?`<span class="badge">${p.status==='paused'?'متوقف':'تمام‌شده'}</span>`:''}
-    ${days!==null?`<span class="badge ${days<=7&&days>=0?'hi':''}">${days>=0?fa(days)+' روز تا TGE':'TGE گذشته'}</span>`:''}
-    ${st?`<span class="badge st">🔥 ${fa(st)}</span>`:''}
-    ${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">باز کن ↗</a>`:''}
-    <button class="btn sm" onclick="openProject('${p.id}')">✎</button></div>
+    ${p.status!=='active'?`<span class="badge">${T(p.status)}</span>`:''}
+    ${days!==null?`<span class="badge ${days<=7&&days>=0?'hi':''}">${days>=0?T('daysToTge',N(days)):T('tgePassed')}</span>`:''}
+    ${st?`<span class="badge st">🔥 ${N(st)}</span>`:''}
+    ${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">${T('open')}</a>`:''}
+    <button class="btn sm" title="${T('edit')}" onclick="openProject('${p.id}')">✎</button></div>
   <div class="chips">${chip('👛',p.wallet)}${chip('⛓',p.chain)}${chip('𝕏',p.x)}${chip('💬',p.discord)}${chip('🌐',p.browser)}${chip('✉️',p.email)}</div>
   <div class="tasks">${p.tasks.map(t=>{const ok=isDone(t);return `<div class="task ${ok?'ok':''}">
      <input type="checkbox" ${ok?'checked':''} onchange="toggle('${p.id}','${t.id}')">
      <span class="tt" onclick="toggle('${p.id}','${t.id}')">${esc(t.title)}</span>
-     ${t.freq!=='daily'?`<span class="fq">${FQ[t.freq]}</span>`:''}
+     ${t.freq!=='daily'?`<span class="fq">${T(t.freq)}</span>`:''}
      ${t.url?`<a href="${esc(t.url)}" target="_blank" rel="noopener">↗</a>`:''}
-     <button class="x" title="حذف تسک" onclick="delTask('${p.id}','${t.id}')">×</button></div>`}).join('')||'<div class="fq" style="padding:4px">هنوز تسکی نداره؛ پایین اضافه کن.</div>'}</div>
-  <div class="addt"><input id="nt_${p.id}" placeholder="تسک جدید… (لینک هم می‌تونی آخرش بذاری)" onkeydown="if(event.key==='Enter')addTask('${p.id}')">
-    <select id="nf_${p.id}"><option value="daily">روزانه</option><option value="weekly">هفتگی</option><option value="once">یک‌بار</option></select>
+     <button class="x" onclick="delTask('${p.id}','${t.id}')">×</button></div>`}).join('')||`<div class="fq" style="padding:4px">${T('noTasks')}</div>`}</div>
+  <div class="addt"><input id="nt_${p.id}" placeholder="${esc(T('newTask'))}" onkeydown="if(event.key==='Enter')addTask('${p.id}')">
+    <select id="nf_${p.id}"><option value="daily">${T('daily')}</option><option value="weekly">${T('weekly')}</option><option value="once">${T('once')}</option></select>
     <button class="btn sm" onclick="addTask('${p.id}')">+</button></div>
   ${p.notes?`<div class="note">${esc(p.notes)}</div>`:''}
-  <div class="foot"><span>${fa(d)}/${fa(n)}</span><div class="prog"><i style="width:${n?d/n*100:0}%"></i></div><div class="heat" title="۱۴ روز اخیر">${heat(p)}</div>${p.cost?`<span>$${fa(p.cost)}</span>`:''}</div>
+  <div class="foot"><span>${N(d)}/${N(n)}</span><div class="prog"><i style="width:${n?d/n*100:0}%"></i></div><div class="heat" title="${T('heat')}">${heat(p)}</div>${p.cost?`<span>$${N(p.cost)}</span>`:''}</div>
   </div>`}
 
 function renderAccounts(){
   const m=document.getElementById('main');
-  const groups=[['wallet','👛 کیف پول'],['x','𝕏 اکانت X'],['discord','💬 دیسکورد'],['browser','🌐 مرورگر / پروفایل'],['email','✉️ ایمیل / تلگرام']];
+  const groups=[['wallet','gWallet'],['x','gX'],['discord','gDiscord'],['browser','gBrowser'],['email','gEmail']];
   let h='';
-  for(const[f,t]of groups){const vals=uniq(f);if(!vals.length)continue;
-    h+=`<h2>${t}</h2><table><tr><th>${t.split(' ').slice(1).join(' ')}</th><th>تعداد</th><th>پروژه‌ها</th></tr>`+
-    vals.map(v=>{const ps=S.projects.filter(p=>p[f]===v);return `<tr><td class="ltr">${esc(v)}</td><td class="${ps.length>8?'warn':''}">${fa(ps.length)}</td><td>${ps.map(p=>esc(p.name)).join('، ')}</td></tr>`}).join('')+'</table>';}
-  const none=S.projects.filter(p=>!p.wallet);if(none.length)h+=`<h2>بدون کیف پول ثبت‌شده</h2><div class="note">${none.map(p=>esc(p.name)).join('، ')}</div>`;
-  const cost=S.projects.reduce((a,p)=>a+(+p.cost||0),0);if(cost)h+=`<h2>جمع هزینه‌ها</h2><div class="note">$${fa(cost.toFixed(2))}</div>`;
-  m.innerHTML=h||'<div class="empty">وقتی پروژه با کیف پول و اکانت ثبت کنی، اینجا می‌بینی هر کدوم به چه پروژه‌هایی وصله.</div>';
+  for(const[f,k]of groups){const vals=uniq(f);if(!vals.length)continue;
+    h+=`<h2>${T(k)}</h2><table><tr><th>${T('colAcc')}</th><th>${T('colCount')}</th><th>${T('colProjects')}</th></tr>`+
+    vals.map(v=>{const ps=S.projects.filter(p=>p[f]===v);return `<tr><td class="ltr">${esc(v)}</td><td class="${ps.length>8?'warn':''}">${N(ps.length)}</td><td>${ps.map(p=>esc(p.name)).join(', ')}</td></tr>`}).join('')+'</table>';}
+  const none=S.projects.filter(p=>!p.wallet);if(none.length)h+=`<h2>${T('noWallet')}</h2><div class="note">${none.map(p=>esc(p.name)).join(', ')}</div>`;
+  const cost=S.projects.reduce((a,p)=>a+(+p.cost||0),0);if(cost)h+=`<h2>${T('totalCost')}</h2><div class="note">$${N(cost.toFixed(2))}</div>`;
+  m.innerHTML=h||`<div class="empty">${T('accEmpty')}</div>`;
 }
 
 function toggle(pid,tid){const p=S.projects.find(x=>x.id===pid),t=p.tasks.find(x=>x.id===tid);
   if(isDone(t))delete S.done[tid];else S.done[tid]=period(t);recordHist(p);save();render();
-  const{d,n}=projStats(p);if(n&&d>=n)toast(`✅ ${p.name} برای امروز کامل شد`)}
+  const{d,n}=projStats(p);if(n&&d>=n)toast(T('doneToast',p.name))}
 function addTask(pid){const inp=document.getElementById('nt_'+pid);let v=inp.value.trim();if(!v)return;
   let url='';const m=v.match(/(https?:\/\/\S+)\s*$/);if(m){url=m[1];v=v.slice(0,m.index).trim()||url}
   const p=S.projects.find(x=>x.id===pid);p.tasks.push({id:uid(),title:v,url,freq:document.getElementById('nf_'+pid).value});recordHist(p);save();render();
   setTimeout(()=>document.getElementById('nt_'+pid)?.focus(),0)}
-function delTask(pid,tid){if(!confirm('این تسک حذف بشه؟'))return;const p=S.projects.find(x=>x.id===pid);p.tasks=p.tasks.filter(t=>t.id!==tid);delete S.done[tid];recordHist(p);save();render()}
+function delTask(pid,tid){if(!confirm(T('delTaskQ')))return;const p=S.projects.find(x=>x.id===pid);p.tasks=p.tasks.filter(t=>t.id!==tid);delete S.done[tid];recordHist(p);save();render()}
 
 const F=['name','url','wallet','chain','x','discord','browser','email','status','prio','tge','cost','notes'];
 function openProject(id){editId=id||null;const p=id?S.projects.find(x=>x.id===id):{status:'active',prio:1};
-  F.forEach(f=>document.getElementById('p_'+f).value=p[f]??'');document.getElementById('dlgT').textContent=id?'ویرایش پروژه':'پروژهٔ جدید';
+  F.forEach(f=>document.getElementById('p_'+f).value=p[f]??'');document.getElementById('dlgT').textContent=T(id?'editTitle':'newTitle');
   document.getElementById('p_del').style.display=id?'':'none';dlg.showModal();setTimeout(()=>document.getElementById('p_name').focus(),50)}
-function saveProject(){const o={};F.forEach(f=>o[f]=document.getElementById('p_'+f).value.trim());if(!o.name){toast('اسم پروژه رو بنویس');return}
-  if(/\b([a-z]+\s+){11,23}[a-z]+\b/i.test(o.notes)||/\b(0x)?[0-9a-f]{64}\b/i.test(o.notes+o.wallet)){if(!confirm('به نظر شبیه سید فریز یا پرایوت‌کیه! مطمئنی ذخیره بشه؟'))return}
+function saveProject(){const o={};F.forEach(f=>o[f]=document.getElementById('p_'+f).value.trim());if(!o.name){toast(T('needName'));return}
+  if(/\b([a-z]+\s+){11,23}[a-z]+\b/i.test(o.notes)||/\b(0x)?[0-9a-f]{64}\b/i.test(o.notes+' '+o.wallet)){if(!confirm(T('seedQ')))return}
   o.prio=+o.prio;if(editId){Object.assign(S.projects.find(x=>x.id===editId),o)}else S.projects.push({id:uid(),tasks:[],...o});save();dlg.close();render()}
-function deleteProject(){const p=S.projects.find(x=>x.id===editId);if(!confirm(`«${p.name}» و همهٔ تسک‌هاش حذف بشه؟`))return;
+function deleteProject(){const p=S.projects.find(x=>x.id===editId);if(!confirm(T('delProjQ',p.name)))return;
   p.tasks.forEach(t=>delete S.done[t.id]);S.projects=S.projects.filter(x=>x.id!==editId);save();dlg.close();render()}
 
-function copy(v){navigator.clipboard?.writeText(v).then(()=>toast('کپی شد')).catch(()=>toast(v))}
-function exportData(){const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`airdrops-backup-${dkey()}.json`;a.click();S.lastBackup=dkey();save();toast('فایل بکاپ دانلود شد')}
-function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.projects)throw 0;if(!confirm('اطلاعات فعلی با این بکاپ جایگزین بشه؟'))return;S=d;S.done=S.done||{};S.hist=S.hist||{};save();render();toast('بازیابی شد')}catch(e){alert('فایل بکاپ معتبر نیست')}inp.value=''};r.readAsText(f)}
+function copy(v){navigator.clipboard?.writeText(v).then(()=>toast(T('copied'))).catch(()=>toast(v))}
+function exportData(){const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`airdrops-backup-${dkey()}.json`;a.click();S.lastBackup=dkey();save();toast(T('backupDone'))}
+function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.projects)throw 0;if(!confirm(T('restoreQ')))return;S=d;S.done=S.done||{};S.hist=S.hist||{};save();render();toast(T('restored'))}catch(e){alert(T('badFile'))}inp.value=''};r.readAsText(f)}
 
-// reset view at midnight & remind backup
 let lastDay=dkey();setInterval(()=>{if(dkey()!==lastDay){lastDay=dkey();render()}},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
-render();
-if(S.projects.length&&(!S.lastBackup||(new Date(dkey())-new Date(S.lastBackup))/864e5>=7))setTimeout(()=>toast('یه هفته‌ست بکاپ نگرفتی 💾'),1200);
+applyLang();render();
+if(S.projects.length&&(!S.lastBackup||(new Date(dkey())-new Date(S.lastBackup))/864e5>=7))setTimeout(()=>toast(T('backupRemind')),1200);
 </script>
 </body>
 </html>
