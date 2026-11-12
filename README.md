@@ -5,6 +5,8 @@ It does **not** find, list, or recommend airdrops, and it doesn't connect to any
 
 🔗 Live: https://ckercrypto.github.io/airdrop-tracker/
 
+🌐 Languages: English (default) · فارسی · Русский · Türkçe · Español · 中文. Switch from the language menu at the top; your choice is remembered.
+
 ## What it does
 - **One card per project** you're farming. Each card records which **wallet** (name or public address), **chain**, **X account**, **Discord account**, **browser/profile**, and email/Telegram you use for it, plus its link, status, priority, snapshot/TGE date, money spent, and notes.
 - **Your own tasks** go in each project. You add them yourself (e.g. "faucet + swap", "daily check-in", "like & retweet"). Each one can be **daily**, **weekly**, or **one-time**, and can hold a link.
@@ -23,4 +25,5 @@ It does **not** find, list, or recommend airdrops, and it doesn't connect to any
 - برای هر پروژه ثبت می‌کنی کدوم کیف پول، اکانت X، دیسکورد و مرورگر بهش وصله.
 - تسک‌های روزانه، هفتگی یا یک‌باره رو خودت اضافه می‌کنی و با تیک زدن جلو می‌ری.
 - چک‌های روزانه هر شب ریست می‌شن.
+- چندزبانه است: پیش‌فرض انگلیسیه و از منوی بالا می‌شه فارسی رو انتخاب کرد.
 - اطلاعات فقط توی مرورگر خودت ذخیره می‌شه.
