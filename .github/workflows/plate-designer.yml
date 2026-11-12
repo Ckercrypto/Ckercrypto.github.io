@@ -1,0 +1,174 @@
+# Trans Plate Designer - build Android APK + Windows exe and publish them.
+# Place this file at .github/workflows/plate-designer.yml in the repository
+# Ckercrypto/Ckercrypto.github.io (the app lives in the plate-designer/ folder).
+name: Build Trans Plate Designer
+
+on:
+  push:
+    paths:
+      - 'plate-designer/**'
+      - '.github/workflows/plate-designer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: plate-designer-build
+  cancel-in-progress: true
+
+env:
+  APP_DIR: plate-designer
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: plate-designer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git zip unzip autoconf automake libtool pkg-config cmake \
+            zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 \
+            libffi-dev libssl-dev build-essential ccache libltdl-dev
+
+      - name: Install buildozer
+        run: |
+          python -m pip install --upgrade pip
+          pip install "buildozer==1.5.0" "cython==0.29.36" setuptools wheel
+          # core unit tests (no Kivy needed)
+          pip install pillow arabic-reshaper "python-bidi==0.4.2" pypdf
+
+      - name: Core unit tests
+        run: python tests/test_core.py
+
+      - name: Cache buildozer (SDK, NDK, p4a dists)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            plate-designer/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('plate-designer/buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      - name: Build APK (debug)
+        env:
+          # make sure sdkmanager prompts are always answered
+          BUILDOZER_WARN_ON_ROOT: '0'
+        run: |
+          yes | buildozer -v android debug
+
+      - name: Collect APK
+        run: |
+          mkdir -p ../out
+          cp bin/*.apk ../out/TransPlateDesigner-android.apk
+          ls -la ../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TransPlateDesigner-android
+          path: out/TransPlateDesigner-android.apk
+          if-no-files-found: error
+
+  windows:
+    name: Windows exe
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: plate-designer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install "kivy[base]==2.3.0" pillow arabic-reshaper "python-bidi==0.4.2" six pyinstaller pypdf
+
+      - name: Core unit tests
+        shell: pwsh
+        run: python tests/test_core.py
+
+      - name: Build exe (PyInstaller, one folder)
+        shell: pwsh
+        env:
+          KIVY_GL_BACKEND: angle_sdl2
+        run: |
+          python -m PyInstaller TransPlateDesigner.spec --noconfirm --clean
+          if (!(Test-Path dist/TransPlateDesigner/TransPlateDesigner.exe)) { throw "exe missing" }
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ../out | Out-Null
+          Compress-Archive -Path dist/TransPlateDesigner -DestinationPath ../out/TransPlateDesigner-windows.zip -Force
+          Get-ChildItem ../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TransPlateDesigner-windows
+          path: out/TransPlateDesigner-windows.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish release plate-designer-latest
+    needs: [android, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List files
+        run: ls -la dist
+
+      - name: Remove previous "latest" release and tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete plate-designer-latest --cleanup-tag --yes || true
+          git ls-remote --tags "https://github.com/${GH_REPO}.git" | grep -q "refs/tags/plate-designer-latest$" \
+            && gh api -X DELETE "repos/${GH_REPO}/git/refs/tags/plate-designer-latest" || true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: plate-designer-latest
+          target_commitish: ${{ github.sha }}
+          name: Trans Plate Designer (latest build)
+          body: |
+            Automatic build of commit ${{ github.sha }}.
+
+            * **TransPlateDesigner-android.apk** - Android (arm64-v8a + armeabi-v7a). Allow "install unknown apps" for your browser/file manager, then open the APK.
+            * **TransPlateDesigner-windows.zip** - Windows 10/11 64-bit. Unzip and run TransPlateDesigner.exe.
+
+            طراح پلاک ترانس - نسخهٔ اندروید (APK) و ویندوز (ZIP).
+          prerelease: false
+          make_latest: false
+          files: |
+            dist/TransPlateDesigner-android.apk
+            dist/TransPlateDesigner-windows.zip

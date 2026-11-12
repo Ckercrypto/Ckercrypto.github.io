@@ -1,0 +1,7 @@
+kivy[base]==2.3.0
+pillow
+arabic-reshaper
+python-bidi==0.4.2
+six
+# Android only (installed by buildozer): androidstorage4kivy, pyjnius
+# tests: pypdf, pytest
