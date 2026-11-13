@@ -202,22 +202,22 @@ Future<Uint8List> buildInvoicePdf({
           child: pw.Column(children: [
             pw.Text('مهر و امضای فروشنده', style: const pw.TextStyle(color: PdfColors.grey700)),
             pw.SizedBox(height: 4),
-            pw.SizedBox(
-              height: 110,
-              width: 200,
-              child: pw.Stack(alignment: pw.Alignment.center, children: [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
                 if (stamp != null)
-                  pw.Positioned.fill(
+                  pw.SizedBox(
+                      height: 100,
+                      width: 100,
                       child: pw.Image(stamp, fit: pw.BoxFit.contain)),
+                if (stamp != null && sign != null) pw.SizedBox(width: 12),
                 if (sign != null)
-                  pw.Positioned(
-                    left: 20,
-                    right: 20,
-                    top: 15,
-                    bottom: 15,
-                    child: pw.Image(sign, fit: pw.BoxFit.contain),
-                  ),
-              ]),
+                  pw.SizedBox(
+                      height: 80,
+                      width: 110,
+                      child: pw.Image(sign, fit: pw.BoxFit.contain)),
+              ],
             ),
           ]),
         ),
