@@ -30,8 +30,22 @@ class ImportRow {
 class ImportResult {
   final List<ImportRow> rows;
   final String? error;
-  const ImportResult(this.rows, [this.error]);
+  final PriceUnit? unit; // unit the file names, when it names one
+  const ImportResult(this.rows, [this.error, this.unit]);
 }
+
+/// The unit a file's text names most: "ریال" or "تومان" (with "هزار").
+PriceUnit? unitHint(String text) {
+  final t = text.replaceAll('ي', 'ی');
+  final rial = RegExp('ریال').allMatches(t).length;
+  final toman = RegExp('تومان').allMatches(t).length;
+  if (rial == 0 && toman == 0) return null;
+  final thousand = RegExp(r'هزار\s*(ریال|تومان)').hasMatch(t);
+  if (rial > toman) return thousand ? PriceUnit.thousandRial : PriceUnit.rial;
+  return thousand ? PriceUnit.thousandToman : PriceUnit.toman;
+}
+
+String _lastText = '';
 
 /// What the numbers in the file mean, converted to rial.
 enum PriceUnit {
@@ -73,12 +87,14 @@ ImportResult importFile(String fileName, Uint8List bytes) {
 }
 
 ImportResult _finish(List<ImportRow> rows) {
+  final hint = unitHint(_lastText);
+  _lastText = '';
   markSuspicious(rows);
   if (rows.isEmpty) {
     return const ImportResult([],
         'کالایی پیدا نشد. اگه PDF اسکن‌شده (عکس) باشه، متنی برای خوندن نداره.');
   }
-  return ImportResult(rows);
+  return ImportResult(rows, null, hint);
 }
 
 // ---------------------------------------------------------------- text utils
@@ -281,6 +297,7 @@ List<ImportRow> rowsFromPdf(Uint8List bytes) {
   final lines = PdfTextExtractor(doc).extractTextLines();
   final frags = <_Frag>[for (final l in lines) ..._lineFrags(l)];
   doc.dispose();
+  _lastText = frags.map((f) => f.text).join('\n');
   return _rowsFromFragments(frags);
 }
 
@@ -443,6 +460,16 @@ List<ImportRow> _pageRows(List<_Frag> fs) {
       weight.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
   final nameRtl = nameKey >= 100000;
   final nameX = (nameKey % 100000) * 6.0;
+  // A header row naming the columns wins when it puts the names elsewhere
+  // (e.g. a dimensions column that the left-edge guess picked instead).
+  final guessed = [
+    for (final f in fs)
+      if (_hasLetter(f.text) &&
+          ((nameRtl ? f.right : f.left) - nameX).abs() <= 9)
+        (f.left + f.right) / 2
+  ]..sort();
+  final byHead = _headerRows(fs, guessed[guessed.length ~/ 2]);
+  if (byHead != null) return byHead;
   bool inNameCol(_Frag f) =>
       (nameRtl ? f.right : f.left) - nameX <= 9 &&
       nameX - (nameRtl ? f.right : f.left) <= 9;
@@ -571,6 +598,111 @@ List<ImportRow> _pageRows(List<_Frag> fs) {
                 ? '$prefix ${r.name}'
                 : r.name,
             price: r.price),
+  ];
+}
+
+String _headNorm(String t) => t
+    .replaceAll('ي', 'ی')
+    .replaceAll('ك', 'ک')
+    .replaceAll('\u200c', ' ')
+    .toLowerCase()
+    .trim();
+
+final _nameHeadRe = RegExp(
+    r'^(نام|شرح|مدل|کالا|عنوان|محصول|model|item|product|name)( .*)?$');
+final _priceHeadRe = RegExp(r'^(قیمت|مبلغ|فی|price)( .*)?$');
+final _dimRe = RegExp(r'\d\s*[*×xX]\s*\d');
+
+/// Table with a header row ("مدل" … "قیمت"): names come from the column
+/// under the name header, prices from the number column nearest the price
+/// header, each price paired with the closest name vertically.
+List<ImportRow>? _headerRows(List<_Frag> fs, double guessedNameX) {
+  _Frag? nh, ph;
+  for (final f in fs) {
+    final t = _headNorm(f.text);
+    if (t.length > 20 || RegExp(r'\d').hasMatch(t)) continue;
+    if (ph == null && _priceHeadRe.hasMatch(t)) ph = f;
+  }
+  if (ph == null) return null;
+  for (final f in fs) {
+    final t = _headNorm(f.text);
+    if (t.length > 20 || RegExp(r'\d').hasMatch(t)) continue;
+    if ((f.top - ph.top).abs() > ph.h * 3) continue;
+    if (_nameHeadRe.hasMatch(t)) {
+      nh = f;
+      break;
+    }
+  }
+  if (nh == null) return null;
+  final headBottom = [nh.bottom, ph.bottom].reduce((a, b) => a > b ? a : b);
+  final heads = fs
+      .where((f) =>
+          (f.top - nh!.top).abs() <= nh.h * 3 &&
+          f.top <= headBottom + 1 &&
+          !RegExp(r'\d').hasMatch(f.text))
+      .toList()
+    ..sort((a, b) => a.left.compareTo(b.left));
+  double cx(_Frag f) => (f.left + f.right) / 2;
+  final i = heads.indexOf(nh);
+  final lo = i > 0 ? (cx(heads[i - 1]) + cx(nh)) / 2 : -1e9;
+  final hi = i + 1 < heads.length ? (cx(heads[i + 1]) + cx(nh)) / 2 : 1e9;
+  if (guessedNameX >= lo && guessedNameX <= hi) return null; // guess agrees
+
+  final body = fs.where((f) => f.top > headBottom).toList();
+  final names = body
+      .where((f) =>
+          cx(f) >= lo &&
+          cx(f) <= hi &&
+          _hasLetter(f.text) &&
+          !_dimRe.hasMatch(f.text))
+      .toList()
+    ..sort((a, b) => a.top.compareTo(b.top));
+  if (names.isEmpty) return null;
+  // A price cell can run into the next cell ("2,700,000,000 65*35*84cm").
+  String tok(_Frag f) => f.text.trim().split(RegExp(r'\s+')).first;
+  bool isPrice(_Frag f) {
+    final t = tok(f);
+    if (t == '-' || t == '—') return true;
+    if (_dimRe.hasMatch(t) || t.contains('/')) return false;
+    final v = parsePrice(t);
+    return v != null && v >= 100;
+  }
+
+  final nums = body.where(isPrice).toList();
+  if (nums.isEmpty) return null;
+  // The price column: right edge of the number nearest the price header.
+  nums.sort((a, b) => (cx(a) - cx(ph!)).abs().compareTo((cx(b) - cx(ph)).abs()));
+  final ref = nums.first;
+  final prices = nums
+      .where((f) =>
+          (f.right - ref.right).abs() < 15 || (f.left - ref.left).abs() < 15)
+      .where((f) => !names.contains(f))
+      .toList();
+
+  // Pair each price with the nearest free name (ties go to the name above).
+  final pairs = <(double, _Frag, _Frag)>[];
+  for (final p in prices) {
+    final pc = (p.top + p.bottom) / 2;
+    for (final n in names) {
+      final d = ((n.top + n.bottom) / 2 - pc);
+      if (d.abs() > n.h * 6) continue;
+      pairs.add((d.abs() + (d > 0 ? 0.01 : 0), p, n));
+    }
+  }
+  pairs.sort((a, b) => a.$1.compareTo(b.$1));
+  final priceOf = <_Frag, _Frag>{};
+  final usedP = <_Frag>{};
+  for (final (_, p, n) in pairs) {
+    if (usedP.contains(p) || priceOf.containsKey(n)) continue;
+    priceOf[n] = p;
+    usedP.add(p);
+  }
+  return [
+    for (final n in names)
+      if (cleanName(n.text).isNotEmpty)
+        ImportRow(
+            name: cleanName(n.text),
+            price: priceOf[n] == null ? null : parsePrice(tok(priceOf[n]!))),
   ];
 }
 
@@ -722,6 +854,7 @@ int _findHead(List<String> row, List<String> keys, {Set<int> skip = const {}}) {
 }
 
 List<ImportRow> rowsFromTable(List<List<String>> table) {
+  _lastText = table.map((r) => r.join(' ')).join('\n');
   final out = <ImportRow>[];
   // Split into blocks at empty rows (sheets / separate tables).
   var block = <List<String>>[];

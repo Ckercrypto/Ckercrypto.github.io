@@ -53,6 +53,21 @@ void main() {
     expect(r.rows.where((x) => x.price != null).length, 43);
   });
 
+  test('stabilizer pdf: model column, not dimensions; rial', skip: !File('test/fixtures/stb.pdf').existsSync(), () {
+    final r = importFile('stb.pdf', File('test/fixtures/stb.pdf').readAsBytesSync());
+    expect(r.unit, PriceUnit.rial);
+    final byName = {for (final x in r.rows) x.name: x.price};
+    expect(r.rows.length, 38);
+    expect(byName['SVC-1KVA'], 180000000);
+    expect(byName['SDW-12KVA'], 950000000);
+    expect(byName['SDW-12KVA outdoor'], 1100000000);
+    expect(byName['JSW-20KVA'], 2700000000);
+    expect(byName['SBW F 150 KVA'], 14000000000);
+    expect(byName['TNS-120KVA'], isNull);
+    expect(r.rows.where((x) => x.name.contains('cm')), isEmpty);
+    expect(r.rows.where((x) => x.suspicious), isEmpty);
+  });
+
   test('persian rtl pdf', () async {
     final font = pw.Font.ttf(File('assets/fonts/Vazirmatn-Regular.ttf')
         .readAsBytesSync()

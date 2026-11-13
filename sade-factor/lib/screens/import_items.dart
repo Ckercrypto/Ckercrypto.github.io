@@ -44,21 +44,22 @@ Future<void> startImport(BuildContext context) async {
     return;
   }
   Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ImportReviewScreen(fileName: f.name, rows: r.rows)));
+      builder: (_) => ImportReviewScreen(fileName: f.name, rows: r.rows, unit: r.unit)));
 }
 
 class ImportReviewScreen extends StatefulWidget {
   final String fileName;
   final List<ImportRow> rows;
+  final PriceUnit? unit;
   const ImportReviewScreen(
-      {super.key, required this.fileName, required this.rows});
+      {super.key, required this.fileName, required this.rows, this.unit});
 
   @override
   State<ImportReviewScreen> createState() => _ImportReviewScreenState();
 }
 
 class _ImportReviewScreenState extends State<ImportReviewScreen> {
-  PriceUnit _unit = PriceUnit.toman;
+  late PriceUnit _unit = widget.unit ?? PriceUnit.toman;
   bool _update = true;
 
   List<ImportRow> get rows => widget.rows;
