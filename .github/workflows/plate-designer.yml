@@ -63,16 +63,14 @@ jobs:
         with:
           path: |
             ~/.buildozer
-            plate-designer/.buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('plate-designer/buildozer.spec') }}
-          restore-keys: |
-            buildozer-${{ runner.os }}-
+          key: buildozer-v2-${{ runner.os }}-${{ hashFiles('plate-designer/buildozer.spec') }}
 
       - name: Build APK (debug)
         env:
           # make sure sdkmanager prompts are always answered
           BUILDOZER_WARN_ON_ROOT: '0'
         run: |
+          rm -rf .buildozer/android/platform/build-*/dists
           yes | buildozer -v android debug
 
       - name: Collect APK

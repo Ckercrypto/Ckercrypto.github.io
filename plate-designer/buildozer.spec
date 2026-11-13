@@ -19,7 +19,7 @@ source.exclude_dirs = tests, bin, ci, tools, build, dist, .buildozer, __pycache_
 source.exclude_patterns = *.spec,README.md
 
 # (str) Application versioning
-version = 1.0.1
+version = 1.0.2
 
 # (list) Application requirements
 # python-bidi must stay < 0.5 (0.5+ is a Rust extension that p4a cannot build); it needs six.
