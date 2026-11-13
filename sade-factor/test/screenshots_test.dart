@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sade_factor/main.dart';
+import 'package:sade_factor/import/price_import.dart';
 import 'package:sade_factor/models.dart';
+import 'package:sade_factor/screens/import_items.dart';
 import 'package:sade_factor/store.dart';
 
 Future<void> _loadFonts() async {
@@ -75,6 +77,11 @@ void main() {
 
   const phone = Size(390, 844);
   testWidgets('dashboard phone', (t) => shot(t, phone, 2, 'phone-dashboard', null));
+  testWidgets('import phone', skip: !File('test/fixtures/pricelist.pdf').existsSync(), (t) => shot(t, phone, 2, 'phone-import', () async {
+        final rows = importFile('pricelist.pdf', File('test/fixtures/pricelist.pdf').readAsBytesSync()).rows;
+        t.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute(
+            builder: (_) => ImportReviewScreen(fileName: 'price list - ups_mehr.pdf', rows: rows)));
+      }));
   testWidgets('invoices phone', (t) => shot(t, phone, 2, 'phone-invoices', () async {
         await t.tap(find.text('فاکتورها').last);
       }));

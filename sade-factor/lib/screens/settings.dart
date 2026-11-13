@@ -191,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
           Center(
-            child: Text('ساده‌فاکتور  |  نسخه‌ی ۰.۲',
+            child: Text('ساده‌فاکتور  |  نسخه‌ی ۰.۳',
                 style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),

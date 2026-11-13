@@ -4,6 +4,7 @@ import '../format.dart';
 import '../models.dart';
 import '../store.dart';
 import '../widgets/common.dart';
+import 'import_items.dart';
 
 class ItemsScreen extends StatefulWidget {
   const ItemsScreen({super.key});
@@ -34,7 +35,20 @@ class _ItemsScreenState extends State<ItemsScreen> {
       ),
       body: Constrained(
         child: CustomScrollView(slivers: [
-          const SliverAppBar(title: Text('کالاها و خدمات'), floating: true),
+          SliverAppBar(
+            title: const Text('کالاها و خدمات'),
+            floating: true,
+            actions: [
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: 8),
+                child: TextButton.icon(
+                  onPressed: () => startImport(context),
+                  icon: const Icon(Icons.upload_file_rounded),
+                  label: const Text('ورود از فایل'),
+                ),
+              ),
+            ],
+          ),
           if (store.items.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(

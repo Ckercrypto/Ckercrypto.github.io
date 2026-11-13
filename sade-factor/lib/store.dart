@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 import 'format.dart';
+import 'import/price_import.dart';
 import 'models.dart';
 
 /// Holds all app data and saves it to one JSON file on the device.
@@ -171,6 +172,51 @@ class AppStore extends ChangeNotifier {
       items.add(it);
     }
     save();
+  }
+
+  static String normName(String s) => toLatinDigits(s)
+      .replaceAll('ي', 'ی')
+      .replaceAll('ك', 'ک')
+      .replaceAll('\u200c', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim()
+      .toLowerCase();
+
+  Item? itemByName(String name) {
+    final n = normName(name);
+    for (final it in items) {
+      if (normName(it.name) == n) return it;
+    }
+    return null;
+  }
+
+  /// Adds the selected rows as items. Prices are converted to rial with
+  /// [toRial]. Returns (added, updated).
+  (int, int) importItems(List<ImportRow> rows, int toRial,
+      {bool updateExisting = true}) {
+    var added = 0, updated = 0;
+    for (final r in rows.where((r) => r.selected && r.name.trim().isNotEmpty)) {
+      final price = (r.price ?? 0) * toRial;
+      final old = itemByName(r.name);
+      if (old != null) {
+        if (!updateExisting) continue;
+        if (r.price != null) old.price = price;
+        if (r.unit.isNotEmpty) old.unit = r.unit;
+        if (r.stuffId.isNotEmpty) old.stuffId = r.stuffId;
+        updated++;
+      } else {
+        items.add(Item(
+          name: r.name.trim(),
+          price: price,
+          unit: r.unit.isNotEmpty ? r.unit : 'عدد',
+          stuffId: r.stuffId,
+          vatRate: business.effectiveVatRate,
+        ));
+        added++;
+      }
+    }
+    save();
+    return (added, updated);
   }
 
   void deleteItem(Item it) {
