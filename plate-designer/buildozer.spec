@@ -19,7 +19,7 @@ source.exclude_dirs = tests, bin, ci, tools, build, dist, .buildozer, __pycache_
 source.exclude_patterns = *.spec,README.md
 
 # (str) Application versioning
-version = 1.0.0
+version = 1.0.1
 
 # (list) Application requirements
 # python-bidi must stay < 0.5 (0.5+ is a Rust extension that p4a cannot build); it needs six.
@@ -42,7 +42,7 @@ fullscreen = 0
 android.permissions = (name=android.permission.WRITE_EXTERNAL_STORAGE;maxSdkVersion=28), (name=android.permission.READ_EXTERNAL_STORAGE;maxSdkVersion=32)
 
 # (int) Target / minimum API, NDK
-android.api = 33
+android.api = 35
 android.minapi = 24
 android.ndk = 25b
 android.ndk_api = 24
