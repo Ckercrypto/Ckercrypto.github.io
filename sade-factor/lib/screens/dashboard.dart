@@ -43,6 +43,17 @@ class DashboardScreen extends StatelessWidget {
         icon: Icons.account_balance_wallet_rounded,
         gradient: const [Color(0xFFFF9A62), Color(0xFFF2675B)],
       ),
+      if (!store.business.vatRegistered)
+        StatCard(
+          label: 'پیش‌فاکتورهای باز',
+          value: faDigits(store.invoices
+              .where((i) => i.isProforma && i.status == InvoiceStatus.issued)
+              .length),
+          hint: 'منتظر تأیید مشتری',
+          icon: Icons.request_quote_rounded,
+          gradient: const [Color(0xFF7C6CF2), Color(0xFF5546C9)],
+        )
+      else
       StatCard(
         label: 'ارزش افزوده‌ی ${quarterNames[q - 1]}',
         value: toman(store.vatThisQuarter()),

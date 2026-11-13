@@ -1,7 +1,7 @@
 name: sade_factor
 description: "ساده‌فاکتور - فاکتور و دفترداری ساده برای کسب‌وکارهای کوچک"
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -16,6 +16,7 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.4
   shamsi_date: ^1.1.1
+  file_picker: ^8.1.7
 
 dev_dependencies:
   flutter_test:

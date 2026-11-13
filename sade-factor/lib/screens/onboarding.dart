@@ -19,6 +19,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _phone = TextEditingController();
   final _eco = TextEditingController();
   final _nid = TextEditingController();
+  bool _vatReg = false;
 
   void _next() {
     if (_step == 1 && _name.text.trim().isEmpty) {
@@ -37,6 +38,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         phone: _phone.text.trim(),
         economicCode: _eco.text.trim(),
         nationalId: _nid.text.trim(),
+        vatRegistered: _vatReg,
       );
       store.save();
     }
@@ -111,6 +113,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             decoration: const InputDecoration(
                                 labelText: 'کد اقتصادی',
                                 prefixIcon: Icon(Icons.numbers_rounded))),
+                        const SizedBox(height: 12),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _vatReg,
+                          onChanged: (v) => setState(() => _vatReg = v),
+                          title: const Text('ثبت‌نام ارزش افزوده دارم'),
+                          subtitle: const Text('اگه نداری خاموش بمونه؛ فاکتورها بدون مالیات صادر می‌شن'),
+                        ),
                       ]),
                     ],
                   ),

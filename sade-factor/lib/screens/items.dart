@@ -79,7 +79,9 @@ class _ItemsScreenState extends State<ItemsScreen> {
                       subtitle: Text(
                         missingId
                             ? 'شناسه‌ی کالا ثبت نشده'
-                            : 'مالیات ${num0(it.vatRate)}٪  |  هر ${it.unit}',
+                            : store.business.vatRegistered
+                                ? 'مالیات ${num0(it.vatRate)}٪  |  هر ${it.unit}'
+                                : 'هر ${it.unit}',
                         style: TextStyle(
                             color: missingId ? Colors.orange.shade800 : null),
                       ),
@@ -121,7 +123,7 @@ class _ItemFormState extends State<_ItemForm> {
   late final AppStore store = StoreScope.of(context);
   late final Item it = widget.existing != null
       ? Item.fromJson(widget.existing!.toJson())
-      : Item(vatRate: store.business.defaultVatRate);
+      : Item(vatRate: store.business.effectiveVatRate);
   late final _name = TextEditingController(text: it.name);
   late final _price = TextEditingController(
       text: it.price == 0 ? '' : (it.price ~/ 10).toString());
@@ -145,7 +147,9 @@ class _ItemFormState extends State<_ItemForm> {
       ..price = (int.tryParse(toLatinDigits(_price.text.trim())) ?? 0) * 10
       ..stuffId = sid
       ..unit = _unit.text.trim().isEmpty ? 'عدد' : _unit.text.trim()
-      ..vatRate = double.tryParse(toLatinDigits(_vat.text.trim())) ?? 10;
+      ..vatRate = store.business.vatRegistered
+          ? (double.tryParse(toLatinDigits(_vat.text.trim())) ?? 10)
+          : 0;
     store.upsertItem(it);
     Navigator.pop(context, it);
   }
@@ -208,12 +212,14 @@ class _ItemFormState extends State<_ItemForm> {
                 errorText: _sidError,
               ),
             ),
+            if (store.business.vatRegistered) ...[
             const SizedBox(height: 10),
             TextField(
                 controller: _vat,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                     labelText: 'نرخ مالیات بر ارزش افزوده', suffixText: '٪')),
+            ],
             const SizedBox(height: 20),
             Row(children: [
               if (widget.existing != null)

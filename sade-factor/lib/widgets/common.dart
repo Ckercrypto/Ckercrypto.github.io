@@ -163,7 +163,11 @@ class StatusChip extends StatelessWidget {
         t = 'ابطال‌شده';
         i = Icons.block_rounded;
       case InvoiceStatus.issued:
-        if (invoice.paid) {
+        if (invoice.isProforma) {
+          c = Colors.indigo;
+          t = 'پیش‌فاکتور';
+          i = Icons.request_quote_rounded;
+        } else if (invoice.paid) {
           c = Colors.green.shade600;
           t = 'پرداخت‌شده';
           i = Icons.check_circle_rounded;
@@ -227,7 +231,7 @@ class InvoiceTile extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Text(
-                    'فاکتور ${faDigits(invoice.number)}  |  ${jDateLong(invoice.date)}',
+                    '${invoice.kindLabel} ${faDigits(invoice.number)}  |  ${jDateLong(invoice.date)}',
                     style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
                   ),
                 ],

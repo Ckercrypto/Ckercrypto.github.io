@@ -17,17 +17,19 @@ class InvoicesScreen extends StatefulWidget {
 class _InvoicesScreenState extends State<InvoicesScreen> {
   String _q = '';
   int _filter = 0;
-  static const _filters = ['همه', 'پیش‌نویس', 'منتظر پرداخت', 'پرداخت‌شده', 'ابطال‌شده'];
+  static const _filters = ['همه', 'پیش‌نویس', 'منتظر پرداخت', 'پرداخت‌شده', 'پیش‌فاکتور', 'ابطال‌شده'];
 
   bool _match(Invoice i) {
     switch (_filter) {
       case 1:
         if (i.status != InvoiceStatus.draft) return false;
       case 2:
-        if (i.status != InvoiceStatus.issued || i.paid) return false;
+        if (i.status != InvoiceStatus.issued || i.paid || i.isProforma) return false;
       case 3:
-        if (i.status != InvoiceStatus.issued || !i.paid) return false;
+        if (i.status != InvoiceStatus.issued || !i.paid || i.isProforma) return false;
       case 4:
+        if (!i.isProforma || i.status == InvoiceStatus.cancelled) return false;
+      case 5:
         if (i.status != InvoiceStatus.cancelled) return false;
     }
     if (_q.isEmpty) return true;

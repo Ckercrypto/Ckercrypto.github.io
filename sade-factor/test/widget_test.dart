@@ -35,11 +35,49 @@ void main() {
 
   group('math', () {
     test('line and invoice totals', () {
-      final l = InvoiceLine(itemId: 'a', name: 'x', qty: 3, unitPrice: 100000, discount: 30000, vatRate: 10);
+      final l = InvoiceLine(itemId: 'a', name: 'x', qty: 3, unitPrice: 100000, discountAmount: 30000, vatRate: 10);
       expect(l.net, 270000);
       expect(l.vat, 27000);
       final inv = Invoice(number: 1, lines: [l]);
       expect(inv.total, 297000);
+    });
+    test('percent discount, capped', () {
+      final l = InvoiceLine(itemId: 'a', name: 'x', qty: 2, unitPrice: 500000, discountIsPercent: true, discountPercent: 10, vatRate: 0);
+      expect(l.gross, 1000000);
+      expect(l.discount, 100000);
+      expect(l.total, 900000);
+      l.discountIsPercent = false;
+      l.discountAmount = 5000000;
+      expect(l.discount, 1000000);
+      final inv = Invoice(number: 1, lines: [l, InvoiceLine(itemId: 'b', name: 'y', unitPrice: 200000, vatRate: 0)]);
+      expect(inv.gross, 1200000);
+      expect(inv.discount, 1000000);
+      expect(inv.total, 200000);
+    });
+    test('proforma: own numbers, not in sales', () {
+      final s = _store();
+      final p = s.newInvoice(kind: DocKind.proforma)
+        ..status = InvoiceStatus.issued
+        ..lines.add(InvoiceLine(itemId: 'a', name: 'x', unitPrice: 1000000, vatRate: 0));
+      s.saveInvoice(p);
+      expect(p.number, 1);
+      expect(s.nextProformaNumber, 2);
+      expect(s.nextNumber, 1);
+      expect(s.salesThisMonth(), 0);
+      final inv = s.invoiceFromProforma(p);
+      expect(inv.kind, DocKind.invoice);
+      expect(inv.status, InvoiceStatus.draft);
+      expect(inv.number, 1);
+      expect(s.nextNumber, 2);
+    });
+    test('vat off zeroes items', () {
+      final s = _store();
+      s.items.add(Item(name: 'a', price: 10, vatRate: 10));
+      s.setVatRegistered(false);
+      expect(s.items.first.vatRate, 0);
+      expect(s.business.effectiveVatRate, 0);
+      final l = InvoiceLine.fromItem(Item(name: 'b', price: 100, vatRate: 10), vatOn: false);
+      expect(l.vat, 0);
     });
     test('store aggregates', () {
       final s = _store();
@@ -90,7 +128,7 @@ void main() {
     expect(find.textContaining('نوع اول'), findsOneWidget);
     await t.tap(find.text('صدور فاکتور'));
     await t.pumpAndSettle();
-    expect(find.textContaining('فاکتور صادر شد'), findsOneWidget);
+    expect(find.textContaining('صادر شد!'), findsOneWidget);
     expect(s.invoices.single.status, InvoiceStatus.issued);
     expect(s.invoices.single.total, 55000000);
   });

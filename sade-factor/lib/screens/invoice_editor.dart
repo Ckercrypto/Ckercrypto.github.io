@@ -12,7 +12,8 @@ import 'items.dart';
 /// New invoice in three steps: who, what, check & issue.
 class InvoiceEditor extends StatefulWidget {
   final String? invoiceId; // edit an existing draft
-  const InvoiceEditor({super.key, this.invoiceId});
+  final DocKind kind; // for a new document
+  const InvoiceEditor({super.key, this.invoiceId, this.kind = DocKind.invoice});
 
   @override
   State<InvoiceEditor> createState() => _InvoiceEditorState();
@@ -37,7 +38,7 @@ class _InvoiceEditorState extends State<InvoiceEditor> {
         : store.invoices.where((i) => i.id == widget.invoiceId).firstOrNull;
     inv = existing != null
         ? Invoice.fromJson(existing.toJson())
-        : store.newInvoice();
+        : store.newInvoice(kind: widget.kind);
     _note.text = inv.note;
     if (existing != null) _step = 1;
   }
@@ -62,7 +63,8 @@ class _InvoiceEditorState extends State<InvoiceEditor> {
       if (ex != null) {
         ex.qty += 1;
       } else {
-        inv.lines.add(InvoiceLine.fromItem(it));
+        inv.lines.add(
+            InvoiceLine.fromItem(it, vatOn: store.business.vatRegistered));
       }
     });
   }
@@ -106,7 +108,7 @@ class _InvoiceEditorState extends State<InvoiceEditor> {
                 ? Navigator.pop(context)
                 : setState(() => _step--),
           ),
-          title: Text('فاکتور ${faDigits(inv.number)}'),
+          title: Text('${inv.kindLabel} ${faDigits(inv.number)}'),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(56),
             child: Padding(
@@ -210,7 +212,7 @@ class _InvoiceEditorState extends State<InvoiceEditor> {
                 child: FilledButton.icon(
                   onPressed: () => _finish(issue: true),
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('صدور فاکتور'),
+                  label: Text('صدور ${inv.kindLabel}'),
                 ),
               ),
             ]),
@@ -231,6 +233,24 @@ class _InvoiceEditorState extends State<InvoiceEditor> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (widget.invoiceId == null) ...[
+          SegmentedButton<DocKind>(
+            segments: const [
+              ButtonSegment(
+                  value: DocKind.invoice,
+                  label: Text('فاکتور'),
+                  icon: Icon(Icons.receipt_long_rounded)),
+              ButtonSegment(
+                  value: DocKind.proforma,
+                  label: Text('پیش‌فاکتور'),
+                  icon: Icon(Icons.request_quote_rounded)),
+            ],
+            selected: {inv.kind},
+            onSelectionChanged: (k) =>
+                setState(() => store.setKind(inv, k.first)),
+          ),
+          const SizedBox(height: 14),
+        ],
         TextField(
           autofocus: store.customers.length > 6,
           onChanged: (v) => setState(() => _q = v.trim()),
@@ -358,11 +378,14 @@ class _InvoiceEditorState extends State<InvoiceEditor> {
               _row('تاریخ', jDateLong(inv.date),
                   action: TextButton(
                       onPressed: _pickDate, child: const Text('تغییر'))),
-              _row(
-                  'نوع',
-                  inv.type == InvoiceType.withBuyer
-                      ? 'رسمی (نوع اول)، خریدار اعتبار می‌گیره'
-                      : 'مصرف‌کننده (نوع دوم)'),
+              if (inv.isProforma)
+                _row('نوع', 'پیش‌فاکتور (فقط اعلام قیمت)')
+              else
+                _row(
+                    'نوع',
+                    inv.type == InvoiceType.withBuyer
+                        ? 'رسمی (نوع اول)، خریدار اعتبار می‌گیره'
+                        : 'مصرف‌کننده (نوع دوم)'),
             ]),
           ),
         ),
@@ -372,28 +395,36 @@ class _InvoiceEditorState extends State<InvoiceEditor> {
             padding: const EdgeInsets.all(16),
             child: Column(children: [
               for (final l in inv.lines)
-                _row('${l.name} × ${num0(l.qty)}', toman(l.net)),
+                _row(
+                    '${l.name} × ${num0(l.qty)}${l.discount > 0 ? '  (تخفیف ${l.discountIsPercent ? '${num0(l.discountPercent)}٪' : toman(l.discount)})' : ''}',
+                    toman(l.net)),
               const Divider(height: 24),
-              if (inv.discount > 0) _row('تخفیف', toman(inv.discount)),
-              _row('جمع قبل از مالیات', toman(inv.net)),
-              _row('مالیات بر ارزش افزوده', toman(inv.vat)),
+              _row('جمع کل', toman(inv.gross)),
+              if (inv.discount > 0) _row('جمع تخفیف‌ها', toman(inv.discount)),
+              if (inv.discount > 0) _row('جمع بعد از تخفیف', toman(inv.net)),
+              if (inv.vat > 0) _row('مالیات بر ارزش افزوده', toman(inv.vat)),
               const SizedBox(height: 6),
               _row('مبلغ قابل پرداخت', toman(inv.total), bold: true),
             ]),
           ),
         ),
         const SizedBox(height: 12),
-        if (inv.type == InvoiceType.withBuyer && missingIds > 0)
+        if (!inv.isProforma && inv.type == InvoiceType.withBuyer && missingIds > 0)
           _hint(Icons.info_rounded, Colors.orange,
               '${faDigits(missingIds)} کالا شناسه‌ی ۱۳ رقمی نداره. برای ارسال به سامانه‌ی مودیان لازمه.'),
-        if (inv.type == InvoiceType.withBuyer &&
+        if (!inv.isProforma &&
+            inv.type == InvoiceType.withBuyer &&
             c != null &&
             c.nationalId.isEmpty &&
             c.economicCode.isEmpty)
           _hint(Icons.info_rounded, Colors.orange,
               'کد ملی یا اقتصادی خریدار ثبت نشده. بعد از ارسال قابل اصلاح نیست.'),
-        _hint(Icons.schedule_rounded, cs.primary,
-            'از تاریخ فاکتور ۱۲ روز وقت داری در سامانه‌ی مودیان ثبتش کنی.'),
+        if (!inv.isProforma)
+          _hint(Icons.schedule_rounded, cs.primary,
+              'از تاریخ فاکتور ۱۲ روز وقت داری در سامانه‌ی مودیان ثبتش کنی.'),
+        if (inv.isProforma)
+          _hint(Icons.info_outline_rounded, cs.primary,
+              'پیش‌فاکتور جزو فروش حساب نمی‌شه. هر وقت مشتری قبول کرد، با یک دکمه فاکتورش کن.'),
         const SizedBox(height: 8),
         TextField(
           controller: _note,
@@ -596,8 +627,26 @@ class _LineCardState extends State<_LineCard> {
   bool _open = false;
   late final _price =
       TextEditingController(text: (widget.line.unitPrice ~/ 10).toString());
-  late final _disc = TextEditingController(
-      text: widget.line.discount == 0 ? '' : (widget.line.discount ~/ 10).toString());
+  late final _disc = TextEditingController(text: _discText());
+
+  String _discText() {
+    final l = widget.line;
+    if (l.discountIsPercent) {
+      return l.discountPercent == 0 ? '' : num0(l.discountPercent);
+    }
+    return l.discountAmount == 0 ? '' : (l.discountAmount ~/ 10).toString();
+  }
+
+  void _applyDisc(String v) {
+    final l = widget.line;
+    final t = toLatinDigits(v.trim());
+    if (l.discountIsPercent) {
+      l.discountPercent = (double.tryParse(t) ?? 0).clamp(0, 100).toDouble();
+    } else {
+      l.discountAmount = (int.tryParse(t) ?? 0) * 10;
+    }
+    widget.onChanged();
+  }
 
   void _qty(double d) {
     final l = widget.line;
@@ -628,7 +677,8 @@ class _LineCardState extends State<_LineCard> {
                     Text(l.name,
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
-                    Text('${toman(l.unitPrice)}  |  ${_open ? 'بستن' : 'ویرایش قیمت'}',
+                    Text(
+                        '${toman(l.unitPrice)}${l.discount > 0 ? '  |  تخفیف ${l.discountIsPercent ? '${num0(l.discountPercent)}٪' : toman(l.discount)}' : ''}  |  ${_open ? 'بستن' : 'قیمت و تخفیف'}',
                         style: TextStyle(
                             fontSize: 12, color: cs.onSurfaceVariant)),
                   ],
@@ -663,34 +713,54 @@ class _LineCardState extends State<_LineCard> {
                 ? const SizedBox(width: double.infinity)
                 : Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: Row(children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _price,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                              labelText: 'قیمت واحد', suffixText: 'تومان'),
-                          onChanged: (v) {
-                            l.unitPrice =
-                                (int.tryParse(toLatinDigits(v)) ?? 0) * 10;
-                            widget.onChanged();
+                    child: Column(children: [
+                      TextField(
+                        controller: _price,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                            labelText: 'قیمت واحد', suffixText: 'تومان'),
+                        onChanged: (v) {
+                          l.unitPrice =
+                              (int.tryParse(toLatinDigits(v)) ?? 0) * 10;
+                          widget.onChanged();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        Expanded(
+                          child: TextField(
+                            key: const ValueKey('disc'),
+                            controller: _disc,
+                            keyboardType:
+                                const TextInputType.numberWithOptions(
+                                    decimal: true),
+                            decoration: InputDecoration(
+                              labelText: 'تخفیف این ردیف',
+                              suffixText:
+                                  l.discountIsPercent ? 'درصد' : 'تومان',
+                              helperText: l.discount > 0
+                                  ? 'برابر ${toman(l.discount)}'
+                                  : null,
+                            ),
+                            onChanged: _applyDisc,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SegmentedButton<bool>(
+                          showSelectedIcon: false,
+                          segments: const [
+                            ButtonSegment(value: false, label: Text('تومان')),
+                            ButtonSegment(value: true, label: Text('٪')),
+                          ],
+                          selected: {l.discountIsPercent},
+                          onSelectionChanged: (x) {
+                            setState(() {
+                              l.discountIsPercent = x.first;
+                              _applyDisc(_disc.text);
+                            });
                           },
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _disc,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                              labelText: 'تخفیف', suffixText: 'تومان'),
-                          onChanged: (v) {
-                            l.discount =
-                                (int.tryParse(toLatinDigits(v)) ?? 0) * 10;
-                            widget.onChanged();
-                          },
-                        ),
-                      ),
+                      ]),
                     ]),
                   ),
           ),

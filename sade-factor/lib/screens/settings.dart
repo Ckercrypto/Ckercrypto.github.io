@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../format.dart';
 import '../store.dart';
 import '../widgets/common.dart';
+import '../widgets/image_slot.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -40,6 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ..address = _addr.text.trim()
       ..postalCode = toLatinDigits(_postal.text.trim())
       ..defaultVatRate = double.tryParse(toLatinDigits(_vat.text.trim())) ?? 10;
+    if (b.defaultVatRate == 0) b.defaultVatRate = 10;
     store.save();
     toast(context, 'ذخیره شد');
   }
@@ -111,14 +113,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: b.vatRegistered,
+                  onChanged: (v) => setState(() => store.setVatRegistered(v)),
+                  title: const Text('ثبت‌نام ارزش افزوده دارم',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(b.vatRegistered
+                      ? 'مالیات ارزش افزوده روی فاکتورها حساب می‌شه'
+                      : 'فاکتورها بدون مالیات ارزش افزوده صادر می‌شن'),
+                ),
+                const SizedBox(height: 8),
                 _f(_nid, 'کد ملی یا شناسه ملی', kb: TextInputType.number),
                 _f(_eco, 'کد اقتصادی', kb: TextInputType.number),
                 _f(_mem, 'شناسه یکتای حافظه مالیاتی',
                     helper: 'از کارپوشه‌ی my.tax.gov.ir. برای ارسال خودکار در نسخه‌ی بعد'),
-                _f(_vat, 'نرخ پیش‌فرض ارزش افزوده',
-                    kb: const TextInputType.numberWithOptions(decimal: true),
-                    suffix: '٪',
-                    helper: 'نرخ کالاهای جدید. نرخ هر کالا جدا قابل تغییره'),
+                if (b.vatRegistered)
+                  _f(_vat, 'نرخ پیش‌فرض ارزش افزوده',
+                      kb: const TextInputType.numberWithOptions(decimal: true),
+                      suffix: '٪',
+                      helper: 'نرخ کالاهای جدید. نرخ هر کالا جدا قابل تغییره'),
+              ]),
+            ),
+          ),
+          const SectionTitle('لوگو، مهر و امضا'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(children: [
+                ImageSlot(
+                  title: 'لوگو',
+                  hint: 'بالای فاکتور و پیش‌فاکتور چاپ می‌شه',
+                  value: b.logo,
+                  onChanged: (v) => setState(() {
+                    b.logo = v;
+                    store.save();
+                  }),
+                ),
+                const Divider(),
+                ImageSlot(
+                  title: 'امضا',
+                  hint: 'PNG با پس‌زمینه‌ی شفاف',
+                  value: b.signature,
+                  pngOnly: true,
+                  onChanged: (v) => setState(() {
+                    b.signature = v;
+                    store.save();
+                  }),
+                ),
+                const Divider(),
+                ImageSlot(
+                  title: 'مهر',
+                  hint: 'PNG با پس‌زمینه‌ی شفاف',
+                  value: b.stamp,
+                  pngOnly: true,
+                  onChanged: (v) => setState(() {
+                    b.stamp = v;
+                    store.save();
+                  }),
+                ),
               ]),
             ),
           ),
@@ -138,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
           Center(
-            child: Text('ساده‌فاکتور  |  نسخه‌ی ۰.۱',
+            child: Text('ساده‌فاکتور  |  نسخه‌ی ۰.۲',
                 style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),

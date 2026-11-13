@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show rootBundle;
@@ -13,7 +14,20 @@ Future<Uint8List> buildInvoicePdf({
   required Business biz,
   Customer? customer,
   PdfPageFormat format = PdfPageFormat.a4,
+  bool withSeal = false,
 }) async {
+  pw.MemoryImage? img(String b64) {
+    if (b64.isEmpty) return null;
+    try {
+      return pw.MemoryImage(base64Decode(b64));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final logo = img(biz.logo);
+  final sign = withSeal ? img(biz.signature) : null;
+  final stamp = withSeal ? img(biz.stamp) : null;
   final reg = pw.Font.ttf(await rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'));
   final bold = pw.Font.ttf(await rootBundle.load('assets/fonts/Vazirmatn-Bold.ttf'));
   final theme = pw.ThemeData.withFont(base: reg, bold: bold);
@@ -44,44 +58,74 @@ Future<Uint8List> buildInvoicePdf({
         ),
       );
 
-  final headers = ['ردیف', 'شرح کالا یا خدمت', 'شناسه کالا', 'تعداد', 'فی (ریال)', 'تخفیف', 'مالیات', 'جمع (ریال)'];
-  final data = <List<String>>[
-    for (var i = 0; i < inv.lines.length; i++)
-      [
-        faDigits(i + 1),
-        _z(inv.lines[i].name),
-        faDigits(inv.lines[i].stuffId),
-        '${num0(inv.lines[i].qty)} ${inv.lines[i].unit}',
-        faDigits(groupThousands(inv.lines[i].unitPrice)),
-        faDigits(groupThousands(inv.lines[i].discount)),
-        faDigits(groupThousands(inv.lines[i].vat)),
-        faDigits(groupThousands(inv.lines[i].total)),
-      ]
+  final hasDisc = inv.discount > 0;
+  final hasVat = inv.vat > 0;
+  // (header, flex, cell) — written in reading order (right to left).
+  final cols = <(String, double, String Function(int i))>[
+    ('ردیف', 0, (i) => faDigits(i + 1)),
+    ('شرح کالا یا خدمت', 3, (i) => _z(inv.lines[i].name)),
+    if (!inv.isProforma) ('شناسه کالا', 1.5, (i) => faDigits(inv.lines[i].stuffId)),
+    ('تعداد', 1.1, (i) => '${num0(inv.lines[i].qty)} ${inv.lines[i].unit}'),
+    ('فی (ریال)', 1.4, (i) => faDigits(groupThousands(inv.lines[i].unitPrice))),
+    if (hasDisc)
+      ('تخفیف (ریال)', 1.4, (i) {
+        final l = inv.lines[i];
+        if (l.discount == 0) return '-';
+        final amt = faDigits(groupThousands(l.discount));
+        return l.discountIsPercent ? '$amt\n(${num0(l.discountPercent)}٪)' : amt;
+      }),
+    if (hasVat) ('مالیات', 1.1, (i) => faDigits(groupThousands(inv.lines[i].vat))),
+    ('جمع (ریال)', 1.6, (i) => faDigits(groupThousands(inv.lines[i].total))),
   ];
+  final headers = [for (final c in cols) c.$1];
+  final data = <List<String>>[
+    for (var i = 0; i < inv.lines.length; i++) [for (final c in cols) c.$3(i)]
+  ];
+  final n = cols.length;
+  final widths = <int, pw.TableColumnWidth>{
+    for (var k = 0; k < n; k++)
+      // reversed index: column k in reading order sits at n-1-k
+      n - 1 - k: cols[k].$2 == 0
+          ? const pw.FixedColumnWidth(34)
+          : pw.FlexColumnWidth(cols[k].$2),
+  };
+  final title = inv.isProforma
+      ? 'پیش فاکتور'
+      : inv.type == InvoiceType.withBuyer
+          ? 'صورتحساب فروش کالا و خدمات'
+          : 'صورتحساب فروش (مصرف کننده)';
 
-  final doc = pw.Document(theme: theme, title: 'فاکتور ${inv.number}');
+  final doc = pw.Document(theme: theme, title: '${_z(inv.kindLabel)} ${inv.number}');
   doc.addPage(pw.MultiPage(
     pageFormat: format,
     textDirection: pw.TextDirection.rtl,
     margin: const pw.EdgeInsets.all(28),
     build: (ctx) => [
       pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        if (logo != null) ...[
+          pw.Container(
+            width: 64,
+            height: 64,
+            child: pw.Image(logo, fit: pw.BoxFit.contain),
+          ),
+          pw.SizedBox(width: 10),
+        ],
         pw.Expanded(
           child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
             pw.Text(_z(biz.name),
                 style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-            pw.Text(
-                inv.type == InvoiceType.withBuyer
-                    ? 'صورتحساب فروش کالا و خدمات'
-                    : 'صورتحساب فروش (مصرف‌کننده)',
-                style: const pw.TextStyle(color: PdfColors.grey700)),
+            pw.Text(title,
+                style: pw.TextStyle(
+                    color: inv.isProforma ? teal : PdfColors.grey700,
+                    fontWeight: inv.isProforma ? pw.FontWeight.bold : null,
+                    fontSize: inv.isProforma ? 14 : null)),
           ]),
         ),
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
           pw.Container(
             padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: pw.BoxDecoration(color: teal, borderRadius: pw.BorderRadius.circular(6)),
-            child: pw.Text('شماره ${faDigits(inv.number)}',
+            child: pw.Text('${inv.isProforma ? 'پیش فاکتور ' : ''}شماره ${faDigits(inv.number)}',
                 style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 4),
@@ -119,17 +163,8 @@ Future<Uint8List> buildInvoicePdf({
         headerDecoration: const pw.BoxDecoration(color: teal),
         cellStyle: const pw.TextStyle(fontSize: 9),
         cellAlignment: pw.Alignment.center,
-        cellAlignments: {6: pw.Alignment.centerRight},
-        columnWidths: {
-          7: const pw.FixedColumnWidth(34),
-          6: const pw.FlexColumnWidth(3),
-          5: const pw.FlexColumnWidth(1.6),
-          4: const pw.FlexColumnWidth(1),
-          3: const pw.FlexColumnWidth(1.4),
-          2: const pw.FlexColumnWidth(1.1),
-          1: const pw.FlexColumnWidth(1.1),
-          0: const pw.FlexColumnWidth(1.5),
-        },
+        cellAlignments: {n - 2: pw.Alignment.centerRight},
+        columnWidths: widths,
         oddRowDecoration: const pw.BoxDecoration(color: light),
         border: null,
       ),
@@ -146,8 +181,10 @@ Future<Uint8List> buildInvoicePdf({
           padding: const pw.EdgeInsets.all(10),
           decoration: pw.BoxDecoration(color: light, borderRadius: pw.BorderRadius.circular(8)),
           child: pw.Column(children: [
-            _sum('جمع بعد از تخفیف', inv.net),
-            _sum('مالیات بر ارزش افزوده', inv.vat),
+            _sum('جمع کل', inv.gross),
+            if (hasDisc) _sum('جمع تخفیف ها', inv.discount),
+            if (hasDisc) _sum('جمع بعد از تخفیف', inv.net),
+            if (hasVat) _sum('مالیات بر ارزش افزوده', inv.vat),
             pw.Divider(color: PdfColors.grey400),
             _sum('مبلغ قابل پرداخت', inv.total, bold: true),
             pw.SizedBox(height: 2),
@@ -159,10 +196,37 @@ Future<Uint8List> buildInvoicePdf({
           ]),
         ),
       ]),
-      pw.SizedBox(height: 36),
-      pw.Row(children: [
-        pw.Expanded(child: pw.Center(child: pw.Text('مهر و امضای فروشنده', style: const pw.TextStyle(color: PdfColors.grey700)))),
-        pw.Expanded(child: pw.Center(child: pw.Text('مهر و امضای خریدار', style: const pw.TextStyle(color: PdfColors.grey700)))),
+      pw.SizedBox(height: 24),
+      pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Expanded(
+          child: pw.Column(children: [
+            pw.Text('مهر و امضای فروشنده', style: const pw.TextStyle(color: PdfColors.grey700)),
+            pw.SizedBox(height: 4),
+            pw.SizedBox(
+              height: 110,
+              width: 200,
+              child: pw.Stack(alignment: pw.Alignment.center, children: [
+                if (stamp != null)
+                  pw.Positioned.fill(
+                      child: pw.Image(stamp, fit: pw.BoxFit.contain)),
+                if (sign != null)
+                  pw.Positioned(
+                    left: 20,
+                    right: 20,
+                    top: 15,
+                    bottom: 15,
+                    child: pw.Image(sign, fit: pw.BoxFit.contain),
+                  ),
+              ]),
+            ),
+          ]),
+        ),
+        pw.Expanded(
+          child: pw.Column(children: [
+            pw.Text(inv.isProforma ? 'تأیید خریدار' : 'مهر و امضای خریدار',
+                style: const pw.TextStyle(color: PdfColors.grey700)),
+          ]),
+        ),
       ]),
     ],
     footer: (ctx) => pw.Align(

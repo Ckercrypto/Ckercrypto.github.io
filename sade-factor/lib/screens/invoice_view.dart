@@ -9,10 +9,20 @@ import '../store.dart';
 import '../widgets/common.dart';
 import 'invoice_editor.dart';
 
-class InvoiceView extends StatelessWidget {
+class InvoiceView extends StatefulWidget {
   final String invoiceId;
   final bool justIssued;
   const InvoiceView({super.key, required this.invoiceId, this.justIssued = false});
+
+  @override
+  State<InvoiceView> createState() => _InvoiceViewState();
+}
+
+class _InvoiceViewState extends State<InvoiceView> {
+  bool _seal = false;
+
+  String get invoiceId => widget.invoiceId;
+  bool get justIssued => widget.justIssued;
 
   @override
   Widget build(BuildContext context) {
@@ -21,35 +31,40 @@ class InvoiceView extends StatelessWidget {
     if (inv == null) {
       return const Scaffold(body: Center(child: Text('این فاکتور دیگه وجود نداره')));
     }
+    final biz = store.business;
+    final file = '${inv.isProforma ? 'pish-faktor' : 'faktor'}-${inv.number}.pdf';
     final cs = Theme.of(context).colorScheme;
     final customer = store.customerById(inv.customerId);
 
     Future<void> printIt() async {
       await Printing.layoutPdf(
-        name: 'faktor-${inv.number}.pdf',
+        name: file,
         onLayout: (f) => buildInvoicePdf(
-            inv: inv, biz: store.business, customer: customer, format: f),
+            inv: inv, biz: biz, customer: customer, format: f,
+            withSeal: _seal),
       );
     }
 
     Future<void> shareIt() async {
       final bytes = await buildInvoicePdf(
-          inv: inv, biz: store.business, customer: customer, format: PdfPageFormat.a4);
-      await Printing.sharePdf(bytes: bytes, filename: 'faktor-${inv.number}.pdf');
+          inv: inv, biz: biz, customer: customer, format: PdfPageFormat.a4,
+          withSeal: _seal);
+      await Printing.sharePdf(bytes: bytes, filename: file);
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('فاکتور ${faDigits(inv.number)}'),
+        title: Text('${inv.kindLabel} ${faDigits(inv.number)}'),
         actions: [
           PopupMenuButton<String>(
             onSelected: (v) async {
               switch (v) {
                 case 'dup':
                   final copy = Invoice.fromJson(inv.toJson());
-                  final n = store.newInvoice();
+                  final n = store.newInvoice(kind: inv.kind);
                   final dup = Invoice(
                     number: n.number,
+                    kind: inv.kind,
                     customerId: copy.customerId,
                     customerName: copy.customerName,
                     type: copy.type,
@@ -59,6 +74,12 @@ class InvoiceView extends StatelessWidget {
                   if (context.mounted) {
                     Navigator.of(context).pushReplacement(MaterialPageRoute(
                         builder: (_) => InvoiceEditor(invoiceId: dup.id)));
+                  }
+                case 'convert':
+                  final made = store.invoiceFromProforma(inv);
+                  if (context.mounted) {
+                    Navigator.of(context).pushReplacement(MaterialPageRoute(
+                        builder: (_) => InvoiceEditor(invoiceId: made.id)));
                   }
                 case 'cancel':
                   if (await confirm(context, 'ابطال فاکتور',
@@ -76,7 +97,9 @@ class InvoiceView extends StatelessWidget {
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'dup', child: Text('کپی به فاکتور جدید')),
+              if (inv.isProforma && inv.status != InvoiceStatus.cancelled)
+                const PopupMenuItem(value: 'convert', child: Text('تبدیل به فاکتور')),
+              PopupMenuItem(value: 'dup', child: Text('کپی به ${inv.kindLabel} جدید')),
               if (inv.status == InvoiceStatus.issued)
                 const PopupMenuItem(value: 'cancel', child: Text('ابطال')),
               if (inv.status == InvoiceStatus.draft)
@@ -156,7 +179,37 @@ class InvoiceView extends StatelessWidget {
                   ),
                 ),
               ]),
-            if (inv.status == InvoiceStatus.issued) ...[
+            if (inv.status != InvoiceStatus.draft) ...[
+              const SizedBox(height: 8),
+              Card(
+                child: CheckboxListTile(
+                  key: const ValueKey('seal'),
+                  value: _seal && biz.hasSeal,
+                  onChanged: biz.hasSeal
+                      ? (v) => setState(() => _seal = v ?? false)
+                      : null,
+                  title: const Text('مهر و امضا پای فاکتور',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(biz.hasSeal
+                      ? 'مهر و امضای رنگی روی چاپ و PDF می‌خوره'
+                      : 'اول از تنظیمات، مهر و امضا رو آپلود کن'),
+                  secondary: Icon(Icons.approval_rounded, color: cs.primary),
+                ),
+              ),
+            ],
+            if (inv.isProforma && inv.status == InvoiceStatus.issued) ...[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: () {
+                  final made = store.invoiceFromProforma(inv);
+                  Navigator.of(context).pushReplacement(MaterialPageRoute(
+                      builder: (_) => InvoiceEditor(invoiceId: made.id)));
+                },
+                icon: const Icon(Icons.transform_rounded),
+                label: const Text('مشتری قبول کرد؛ تبدیل به فاکتور'),
+              ),
+            ],
+            if (inv.status == InvoiceStatus.issued && !inv.isProforma) ...[
               const SizedBox(height: 12),
               Card(
                 child: SwitchListTile(
@@ -188,7 +241,7 @@ class InvoiceView extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(l.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                              Text('${num0(l.qty)} ${l.unit} × ${toman(l.unitPrice)}',
+                              Text('${num0(l.qty)} ${l.unit} × ${toman(l.unitPrice)}${l.discount > 0 ? '  |  تخفیف ${l.discountIsPercent ? '${num0(l.discountPercent)}٪' : toman(l.discount)}' : ''}',
                                   style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                             ],
                           ),
@@ -197,8 +250,10 @@ class InvoiceView extends StatelessWidget {
                       ]),
                     ),
                   const Divider(height: 24),
-                  _sum(context, 'جمع قبل از مالیات', inv.net),
-                  _sum(context, 'مالیات بر ارزش افزوده', inv.vat),
+                  _sum(context, 'جمع کل', inv.gross),
+                  if (inv.discount > 0) _sum(context, 'جمع تخفیف‌ها', inv.discount),
+                  if (inv.discount > 0) _sum(context, 'جمع بعد از تخفیف', inv.net),
+                  if (inv.vat > 0) _sum(context, 'مالیات بر ارزش افزوده', inv.vat),
                   _sum(context, 'قابل پرداخت', inv.total, bold: true),
                 ]),
               ),
@@ -268,7 +323,7 @@ class _SuccessBanner extends StatelessWidget {
           Icon(Icons.celebration_rounded, color: Colors.green.shade700),
           const SizedBox(width: 10),
           const Expanded(
-            child: Text('فاکتور صادر شد! حالا چاپش کن یا برای مشتری بفرست.',
+            child: Text('صادر شد! حالا چاپش کن یا برای مشتری بفرست.',
                 style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ]),

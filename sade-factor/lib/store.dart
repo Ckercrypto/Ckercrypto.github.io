@@ -16,6 +16,7 @@ class AppStore extends ChangeNotifier {
   final List<Invoice> invoices = [];
   ThemeMode themeMode = ThemeMode.system;
   int nextNumber = 1;
+  int nextProformaNumber = 1;
 
   File? _file;
   bool loaded = false;
@@ -55,6 +56,7 @@ class AppStore extends ChangeNotifier {
           .map((e) => Invoice.fromJson(Map<String, dynamic>.from(e))));
     themeMode = ThemeMode.values.byName(j['themeMode'] ?? 'system');
     nextNumber = j['nextNumber'] ?? (invoices.length + 1);
+    nextProformaNumber = j['nextProformaNumber'] ?? 1;
   }
 
   Map<String, dynamic> _toJson() => {
@@ -65,6 +67,7 @@ class AppStore extends ChangeNotifier {
         'invoices': invoices.map((c) => c.toJson()).toList(),
         'themeMode': themeMode.name,
         'nextNumber': nextNumber,
+        'nextProformaNumber': nextProformaNumber,
       };
 
   Future<void> save() async {
@@ -97,7 +100,7 @@ class AppStore extends ChangeNotifier {
           : b.number.compareTo(a.number));
 
   Iterable<Invoice> get _live =>
-      invoices.where((i) => i.status == InvoiceStatus.issued);
+      invoices.where((i) => i.status == InvoiceStatus.issued && !i.isProforma);
 
   int salesThisMonth([DateTime? now]) => _live
       .where((i) => sameJalaliMonth(i.date, now ?? DateTime.now()))
@@ -175,7 +178,53 @@ class AppStore extends ChangeNotifier {
     save();
   }
 
-  Invoice newInvoice() => Invoice(number: nextNumber);
+  Invoice newInvoice({DocKind kind = DocKind.invoice}) => Invoice(
+      number: kind == DocKind.proforma ? nextProformaNumber : nextNumber,
+      kind: kind);
+
+  /// Switch an unsaved/draft document between invoice and proforma,
+  /// giving it the next number of its new series.
+  void setKind(Invoice inv, DocKind kind) {
+    if (inv.kind == kind) return;
+    inv.kind = kind;
+    inv.number = kind == DocKind.proforma ? nextProformaNumber : nextNumber;
+  }
+
+  /// Make a real invoice draft from a proforma.
+  Invoice invoiceFromProforma(Invoice p) {
+    final copy = Invoice.fromJson(p.toJson());
+    final inv = Invoice(
+      number: nextNumber,
+      customerId: copy.customerId,
+      customerName: copy.customerName,
+      type: copy.type,
+      lines: copy.lines,
+      note: copy.note,
+    );
+    saveInvoice(inv);
+    return inv;
+  }
+
+  /// Turn VAT on/off for the business; when off, zero every item and every
+  /// draft line so nothing new carries VAT.
+  void setVatRegistered(bool on) {
+    business.vatRegistered = on;
+    if (!on) {
+      for (final it in items) {
+        it.vatRate = 0;
+      }
+      for (final inv in invoices.where((i) => i.status == InvoiceStatus.draft)) {
+        for (final l in inv.lines) {
+          l.vatRate = 0;
+        }
+      }
+    } else {
+      for (final it in items.where((i) => i.vatRate == 0)) {
+        it.vatRate = business.defaultVatRate;
+      }
+    }
+    save();
+  }
 
   void saveInvoice(Invoice inv) {
     final i = invoices.indexWhere((x) => x.id == inv.id);
@@ -183,7 +232,11 @@ class AppStore extends ChangeNotifier {
       invoices[i] = inv;
     } else {
       invoices.add(inv);
-      if (inv.number >= nextNumber) nextNumber = inv.number + 1;
+      if (inv.isProforma) {
+        if (inv.number >= nextProformaNumber) nextProformaNumber = inv.number + 1;
+      } else if (inv.number >= nextNumber) {
+        nextNumber = inv.number + 1;
+      }
     }
     save();
   }
